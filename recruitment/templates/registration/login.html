@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Login — FairHire{% endblock %}
+
+{% block content %}
+<div style="max-width:420px; margin:3rem auto;">
+    <div class="card">
+        <div style="text-align:center; margin-bottom:1.75rem;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">🔐</div>
+            <h2 style="font-size:1.5rem; font-weight:700;">Welcome Back</h2>
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Sign in to your FairHire
+                account</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <ul class="errorlist">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% if form.non_field_errors %}
+            <div class="alert alert-warning">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary"
+                style="width:100%; justify-content:center; padding:0.75rem;">Login</button>
+        </form>
+
+        <p style="text-align:center; margin-top:1.25rem; font-size:0.88rem; color:var(--text-secondary);">
+            Don't have an account?
+            <a href="{% url 'candidate_signup' %}" style="color:var(--primary); font-weight:500;">Candidate</a> ·
+            <a href="{% url 'hr_signup' %}" style="color:var(--primary); font-weight:500;">HR</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

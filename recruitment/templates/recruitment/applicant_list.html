@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Applicants — {{ job.title }} — FairHire{% endblock %}
+
+{% block content %}
+<a href="{% url 'hr_dashboard' %}"
+    style="color:var(--text-secondary); text-decoration:none; font-size:0.9rem; display:inline-flex; align-items:center; gap:0.3rem; margin-bottom:1.5rem;">←
+    Back to Dashboard</a>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Applicants — {{ job.title }}</h1>
+        <p class="page-subtitle">{{ applications.count }} application{{ applications.count|pluralize }} received</p>
+    </div>
+    <a href="{% url 'job_edit' job.pk %}" class="btn btn-secondary">Edit Job</a>
+</div>
+
+{% if applications %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Candidate</th>
+                <th>Skills Match</th>
+                <th>Experience</th>
+                <th>Applied On</th>
+                <th>Status</th>
+                <th>Resume</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in applications %}
+            <tr>
+                <td>
+                    <div style="font-weight:600;">{{ app.candidate.get_full_name|default:app.candidate.username }}</div>
+                    <div style="font-size:0.82rem; color:var(--text-muted);">{{ app.candidate.email }}</div>
+                    {% if app.cover_letter %}
+                    <div style="font-size:0.78rem; color:var(--primary); margin-top:3px;">Has cover letter</div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if app.candidate.candidate_profile.skills %}
+                    <div class="skill-tags">
+                        {% for skill in app.candidate.candidate_profile.skills_list|slice:":3" %}
+                        <span class="skill-tag">{{ skill }}</span>
+                        {% endfor %}
+                        {% if app.candidate.candidate_profile.skills_list|length > 3 %}
+                        <span style="font-size:0.78rem; color:var(--text-muted);">+{{
+                            app.candidate.candidate_profile.skills_list|length|add:"-3" }} more</span>
+                        {% endif %}
+                    </div>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--text-secondary);">
+                    {% if app.candidate.candidate_profile.experience_years %}
+                    {{ app.candidate.candidate_profile.experience_years }} yr{{
+                    app.candidate.candidate_profile.experience_years|pluralize }}
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--text-muted); font-size:0.88rem;">{{ app.applied_at|date:"M d, Y" }}</td>
+                <td><span class="badge badge-{{ app.status }}">{{ app.get_status_display }}</span></td>
+                <td>
+                    {% if app.resume_snapshot %}
+                    <a href="{{ app.resume_snapshot.url }}" target="_blank" class="btn btn-secondary btn-sm">📄
+                        Resume</a>
+                    {% elif app.candidate.candidate_profile.resume %}
+                    <a href="{{ app.candidate.candidate_profile.resume.url }}" target="_blank"
+                        class="btn btn-secondary btn-sm">📄 Profile</a>
+                    {% else %}—{% endif %}
+                </td>
+                <td><a href="{% url 'application_update_status' app.pk %}" class="btn btn-primary btn-sm">Update</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state card">
+    <div style="font-size:3rem; margin-bottom:1rem;">📭</div>
+    <h3>No applications yet</h3>
+    <p>Share your job posting to attract candidates.</p>
+</div>
+{% endif %}
+{% endblock %}

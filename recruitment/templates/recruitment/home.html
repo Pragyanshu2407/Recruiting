@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Home — FairHire{% endblock %}
+
+{% block content %}
+<section style="text-align:center; padding: 4rem 2rem 3rem;">
+    <div
+        style="display:inline-block; background:#ede9fe; color:var(--primary); padding:0.35rem 1rem; border-radius:999px; font-size:0.82rem; font-weight:600; margin-bottom:1.2rem; letter-spacing:0.05em;">
+        AI-POWERED · BIAS-FREE HIRING</div>
+    <h1 style="font-size:3rem; font-weight:800; line-height:1.15; margin-bottom:1rem; letter-spacing:-1px;">
+        Hire & Get Hired,<br><span style="color:var(--primary);">Fairly.</span>
+    </h1>
+    <p style="font-size:1.15rem; color:var(--text-secondary); max-width:560px; margin:0 auto 2rem;">
+        FairHire connects great candidates with great companies — eliminating bias and streamlining every step of the
+        recruiting process.
+    </p>
+
+    {% if not user.is_authenticated %}
+    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; margin-bottom:3rem;">
+        <a href="{% url 'candidate_signup' %}" class="btn btn-primary"
+            style="padding:0.75rem 1.75rem; font-size:1rem;">🚀 Find a Job</a>
+        <a href="{% url 'hr_signup' %}" class="btn btn-secondary" style="padding:0.75rem 1.75rem; font-size:1rem;">🏢
+            Hire Talent</a>
+        <a href="{% url 'login' %}" class="btn btn-secondary" style="padding:0.75rem 1.75rem; font-size:1rem;">Login</a>
+    </div>
+    {% else %}
+    <div style="margin-bottom:3rem;">
+        {% if user.is_hr %}
+        <a href="{% url 'hr_dashboard' %}" class="btn btn-primary" style="padding:0.75rem 1.75rem; font-size:1rem;">Go
+            to Dashboard →</a>
+        {% else %}
+        <a href="{% url 'job_list' %}" class="btn btn-primary" style="padding:0.75rem 1.75rem; font-size:1rem;">Browse
+            Open Jobs →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Stats row -->
+    <div
+        style="display:flex; justify-content:center; gap:3rem; flex-wrap:wrap; padding:2rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+        <div>
+            <div style="font-size:2rem; font-weight:800; color:var(--primary);">{{ open_jobs_count }}</div>
+            <div style="font-size:0.88rem; color:var(--text-secondary);">Open Positions</div>
+        </div>
+        <div>
+            <div style="font-size:2rem; font-weight:800; color:var(--secondary);">100%</div>
+            <div style="font-size:0.88rem; color:var(--text-secondary);">Bias-Free Reviews</div>
+        </div>
+        <div>
+            <div style="font-size:2rem; font-weight:800; color:var(--warning);">⚡ Fast</div>
+            <div style="font-size:0.88rem; color:var(--text-secondary);">Application Process</div>
+        </div>
+    </div>
+</section>
+
+<!-- Feature cards -->
+<section style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1.5rem; margin-top:2rem;">
+    <div class="card" style="border-top:3px solid var(--primary)">
+        <div style="font-size:2rem; margin-bottom:0.75rem;">🎯</div>
+        <h3 style="margin-bottom:0.5rem;">Smart Job Matching</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem;">Get matched to roles that fit your exact skillset.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--secondary)">
+        <div style="font-size:2rem; margin-bottom:0.75rem;">🔍</div>
+        <h3 style="margin-bottom:0.5rem;">Blind Review Mode</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem;">HR evaluates skills first, not demographics.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--warning)">
+        <div style="font-size:2rem; margin-bottom:0.75rem;">📊</div>
+        <h3 style="margin-bottom:0.5rem;">Real-Time Tracking</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem;">Know exactly where you stand in every application.</p>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}My Applications — FairHire{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Applications</h1>
+        <p class="page-subtitle">{{ applications.count }} application{{ applications.count|pluralize }} submitted</p>
+    </div>
+    <a href="{% url 'job_list' %}" class="btn btn-primary">Browse More Jobs</a>
+</div>
+
+{% if applications %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Job Title</th>
+                <th>Company</th>
+                <th>Applied On</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in applications %}
+            <tr>
+                <td>
+                    <a href="{% url 'job_detail' app.job.pk %}"
+                        style="font-weight:600; color:var(--primary); text-decoration:none;">{{ app.job.title }}</a>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">
+                        <span class="badge badge-{{ app.job.location_type }}" style="font-size:0.72rem;">{{
+                            app.job.get_location_type_display }}</span>
+                    </div>
+                </td>
+                <td style="color:var(--text-secondary);">
+                    {% if app.job.posted_by.hr_profile.company_name %}{{ app.job.posted_by.hr_profile.company_name }}
+                    {% else %}{{ app.job.posted_by.username }}{% endif %}
+                </td>
+                <td style="color:var(--text-muted); font-size:0.88rem;">{{ app.applied_at|date:"M d, Y" }}</td>
+                <td>
+                    <span class="badge badge-{{ app.status }}">{{ app.get_status_display }}</span>
+                    {% if app.updated_at != app.applied_at %}
+                    <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Updated {{
+                        app.updated_at|date:"M d" }}</div>
+                    {% endif %}
+                </td>
+                <td><a href="{% url 'job_detail' app.job.pk %}" class="btn btn-secondary btn-sm">View Job</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state card">
+    <div style="font-size:3rem; margin-bottom:1rem;">📭</div>
+    <h3>No applications yet</h3>
+    <p style="margin-bottom:1.5rem;">Start applying to open positions!</p>
+    <a href="{% url 'job_list' %}" class="btn btn-primary">Browse Jobs</a>
+</div>
+{% endif %}
+{% endblock %}

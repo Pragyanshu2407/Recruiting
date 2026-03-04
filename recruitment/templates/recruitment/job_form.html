@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Job Posting — FairHire{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;">
+    <div class="page-header">
+        <h1 class="page-title">{{ action }} Job Posting</h1>
+        {% if job %}<a href="{% url 'job_detail' job.pk %}" class="btn btn-secondary">View Posting</a>{% endif %}
+    </div>
+
+    <div class="card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                {{ form.title }}
+                {% if form.title.errors %}<ul class="errorlist">{% for e in form.title.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                {{ form.description }}
+                {% if form.description.errors %}<ul class="errorlist">{% for e in form.description.errors %}<li>{{ e }}
+                    </li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.required_skills.id_for_label }}">{{ form.required_skills.label }}</label>
+                {{ form.required_skills }}
+                <p class="helptext">{{ form.required_skills.help_text }}</p>
+                {% if form.required_skills.errors %}<ul class="errorlist">{% for e in form.required_skills.errors %}<li>
+                        {{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.location.id_for_label }}">Location</label>
+                    {{ form.location }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.location_type.id_for_label }}">Work Mode</label>
+                    {{ form.location_type }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.salary_min.id_for_label }}">{{ form.salary_min.label }}</label>
+                    {{ form.salary_min }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.salary_max.id_for_label }}">{{ form.salary_max.label }}</label>
+                    {{ form.salary_max }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.deadline.id_for_label }}">Application Deadline</label>
+                    {{ form.deadline }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.status.id_for_label }}">Status</label>
+                    {{ form.status }}
+                </div>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:0.75rem;">
+                <button type="submit" class="btn btn-primary">{{ action }} Job Posting</button>
+                <a href="{% url 'hr_dashboard' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

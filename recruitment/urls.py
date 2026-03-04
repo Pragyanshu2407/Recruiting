@@ -1,0 +1,31 @@
+from django.urls import path
+from . import views
+from django.contrib.auth import views as auth_views
+
+urlpatterns = [
+    # General
+    path('', views.home, name='home'),
+    path('login/', views.CustomLoginView.as_view(), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
+    path('signup/hr/', views.HRSignUpView.as_view(), name='hr_signup'),
+    path('signup/candidate/', views.CandidateSignUpView.as_view(), name='candidate_signup'),
+
+    # HR
+    path('hr/dashboard/', views.hr_dashboard, name='hr_dashboard'),
+    path('hr/profile/', views.hr_profile_edit, name='hr_profile'),
+    path('hr/jobs/new/', views.job_create, name='job_create'),
+    path('hr/jobs/<int:pk>/edit/', views.job_edit, name='job_edit'),
+    path('hr/jobs/<int:pk>/delete/', views.job_delete, name='job_delete'),
+    path('hr/jobs/<int:pk>/applicants/', views.applicant_list, name='applicant_list'),
+    path('hr/applications/<int:pk>/status/', views.application_update_status, name='application_update_status'),
+
+    # Candidate
+    path('candidate/dashboard/', views.candidate_dashboard, name='candidate_dashboard'),
+    path('candidate/profile/', views.candidate_profile_edit, name='candidate_profile'),
+    path('candidate/applications/', views.my_applications, name='my_applications'),
+
+    # Public Job Board
+    path('jobs/', views.job_list, name='job_list'),
+    path('jobs/<int:pk>/', views.job_detail, name='job_detail'),
+    path('jobs/<int:pk>/apply/', views.job_apply, name='job_apply'),
+]

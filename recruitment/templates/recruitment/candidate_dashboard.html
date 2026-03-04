@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Candidate Dashboard — FairHire{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Dashboard</h1>
+        <p class="page-subtitle">Welcome back, {{ user.first_name|default:user.username }}</p>
+    </div>
+    <a href="{% url 'job_list' %}" class="btn btn-primary">Browse Open Jobs</a>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card accent">
+        <div class="stat-label">Total Applied</div>
+        <div class="stat-value">{{ applications.count }}</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-label">Shortlisted</div>
+        <div class="stat-value">{{ status_counts.shortlisted }}</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Interviews</div>
+        <div class="stat-value">{{ status_counts.interview }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Open Positions</div>
+        <div class="stat-value">{{ open_jobs_count }}</div>
+    </div>
+</div>
+
+<!-- Profile completeness alert -->
+{% if not profile_complete %}
+<div class="alert alert-warning" style="display:flex; align-items:center; justify-content:space-between;">
+    <span>⚠️ Your profile is incomplete. Add your skills and education to stand out.</span>
+    <a href="{% url 'candidate_profile' %}" class="btn btn-primary btn-sm">Complete Profile</a>
+</div>
+{% endif %}
+
+<!-- Recent Applications -->
+<h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Recent Applications</h2>
+
+{% if applications %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Job Title</th>
+                <th>Company</th>
+                <th>Applied On</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in applications|slice:":10" %}
+            <tr>
+                <td>
+                    <a href="{% url 'job_detail' app.job.pk %}"
+                        style="font-weight:600; color:var(--primary); text-decoration:none;">{{ app.job.title }}</a>
+                </td>
+                <td style="color:var(--text-secondary);">
+                    {% if app.job.posted_by.hr_profile.company_name %}
+                    {{ app.job.posted_by.hr_profile.company_name }}
+                    {% else %}
+                    {{ app.job.posted_by.username }}
+                    {% endif %}
+                </td>
+                <td style="color:var(--text-muted); font-size:0.88rem;">{{ app.applied_at|date:"M d, Y" }}</td>
+                <td><span class="badge badge-{{ app.status }}">{{ app.get_status_display }}</span></td>
+                <td><a href="{% url 'job_detail' app.job.pk %}" class="btn btn-secondary btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if applications.count > 10 %}
+<p style="text-align:right; margin-top:0.75rem;"><a href="{% url 'my_applications' %}"
+        style="color:var(--primary);">View all {{ applications.count }} applications →</a></p>
+{% endif %}
+{% else %}
+<div class="empty-state card">
+    <div style="font-size:3rem; margin-bottom:1rem;">🔍</div>
+    <h3>No applications yet</h3>
+    <p style="margin-bottom:1.5rem;">Browse open jobs and start applying!</p>
+    <a href="{% url 'job_list' %}" class="btn btn-primary">Browse Jobs</a>
+</div>
+{% endif %}
+{% endblock %}

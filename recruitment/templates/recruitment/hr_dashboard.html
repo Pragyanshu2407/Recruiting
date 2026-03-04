@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}HR Dashboard — FairHire{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">HR Dashboard</h1>
+        <p class="page-subtitle">Welcome back, {{ user.first_name|default:user.username }}
+            {% if user.hr_profile.company_name %} · {{ user.hr_profile.company_name }}{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'job_create' %}" class="btn btn-primary">+ Post New Job</a>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card accent">
+        <div class="stat-label">Total Job Postings</div>
+        <div class="stat-value">{{ job_postings.count }}</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-label">Open Positions</div>
+        <div class="stat-value">{{ open_jobs }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Applications</div>
+        <div class="stat-value">{{ total_applications }}</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Shortlisted</div>
+        <div class="stat-value">{{ shortlisted }}</div>
+    </div>
+</div>
+
+<!-- Profile completeness tip -->
+{% if not user.hr_profile.company_name %}
+<div class="alert alert-info" style="display:flex; align-items:center; justify-content:space-between;">
+    <span>💡 Complete your company profile to attract better candidates.</span>
+    <a href="{% url 'hr_profile' %}" class="btn btn-primary btn-sm">Complete Profile</a>
+</div>
+{% endif %}
+
+<!-- Job Listings Table -->
+<h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Your Job Postings</h2>
+
+{% if job_postings %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Mode</th>
+                <th>Applicants</th>
+                <th>Deadline</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in job_postings %}
+            <tr>
+                <td>
+                    <a href="{% url 'job_detail' job.pk %}"
+                        style="font-weight:600; color:var(--primary); text-decoration:none;">{{ job.title }}</a>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">{{ job.location|default:"No
+                        location set" }}</div>
+                </td>
+                <td><span class="badge badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+                <td><span class="badge badge-{{ job.location_type }}">{{ job.get_location_type_display }}</span></td>
+                <td>
+                    <a href="{% url 'applicant_list' job.pk %}"
+                        style="color:var(--primary); font-weight:600; text-decoration:none;">
+                        {{ job.application_count }} →
+                    </a>
+                </td>
+                <td style="color:var(--text-secondary);">{{ job.deadline|default:"—" }}</td>
+                <td>
+                    <a href="{% url 'job_edit' job.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+                    <a href="{% url 'job_delete' job.pk %}" class="btn btn-danger btn-sm"
+                        onclick="return confirm('Delete this job posting?')">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state card">
+    <div style="font-size:3rem; margin-bottom:1rem;">📋</div>
+    <h3>No job postings yet</h3>
+    <p style="margin-bottom:1.5rem;">Post your first job to start receiving applications.</p>
+    <a href="{% url 'job_create' %}" class="btn btn-primary">+ Post a Job</a>
+</div>
+{% endif %}
+{% endblock %}

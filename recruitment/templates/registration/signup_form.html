@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}{{ user_type }} Sign Up — FairHire{% endblock %}
+
+{% block content %}
+<div style="max-width:480px; margin:2rem auto;">
+    <div class="card">
+        <div style="text-align:center; margin-bottom:1.75rem;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">
+                {% if user_type == "HR" %}🏢{% else %}🚀{% endif %}
+            </div>
+            <h2 style="font-size:1.5rem; font-weight:700;">{{ user_type }} Sign Up</h2>
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">
+                {% if user_type == "HR" %}Post jobs and find great talent{% else %}Discover your next opportunity{% endif %}
+            </p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <ul class="errorlist">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+                {% endif %}
+                {% if field.help_text %}
+                <p class="helptext">{{ field.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary"
+                style="width:100%; justify-content:center; padding:0.75rem;">Create Account</button>
+        </form>
+
+        <p style="text-align:center; margin-top:1.25rem; font-size:0.88rem; color:var(--text-secondary);">
+            Already have an account? <a href="{% url 'login' %}"
+                style="color:var(--primary); font-weight:500;">Login</a>
+        </p>
+        <p style="text-align:center; margin-top:0.5rem; font-size:0.88rem; color:var(--text-secondary);">
+            {% if user_type == "HR" %}
+            Looking for a job? <a href="{% url 'candidate_signup' %}"
+                style="color:var(--primary); font-weight:500;">Sign up as Candidate</a>
+            {% else %}
+            Want to hire? <a href="{% url 'hr_signup' %}" style="color:var(--primary); font-weight:500;">Sign up as
+                HR</a>
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% endblock %}

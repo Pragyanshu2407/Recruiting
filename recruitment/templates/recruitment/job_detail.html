@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}{{ job.title }} — FairHire{% endblock %}
+
+{% block content %}
+<!-- Back link -->
+<a href="{% url 'job_list' %}"
+    style="color:var(--text-secondary); text-decoration:none; font-size:0.9rem; display:inline-flex; align-items:center; gap:0.3rem; margin-bottom:1.5rem;">←
+    Back to Jobs</a>
+
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:1.5rem; align-items:start;">
+    <!-- Main Content -->
+    <div>
+        <div class="card" style="margin-bottom:1rem;">
+            <div
+                style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+                <div>
+                    <h1 style="font-size:1.75rem; font-weight:800; margin-bottom:0.4rem;">{{ job.title }}</h1>
+                    <p style="color:var(--text-secondary); font-size:1rem;">
+                        🏢 {% if job.posted_by.hr_profile.company_name %}{{ job.posted_by.hr_profile.company_name }}{% else %}{{ job.posted_by.username }}{% endif %}
+                        {% if job.location %}· 📍 {{ job.location }}{% endif %}
+                    </p>
+                </div>
+                <span class="badge badge-{{ job.status }}" style="font-size:0.88rem; padding:0.3rem 0.85rem;">{{
+                    job.get_status_display }}</span>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+                <span class="badge badge-{{ job.location_type }}">{{ job.get_location_type_display }}</span>
+                {% if job.salary_min or job.salary_max %}
+                <span style="color:var(--secondary); font-weight:600; font-size:0.88rem;">
+                    💰 {% if job.salary_min %}₹{{ job.salary_min }}{% endif %}{% if job.salary_min and job.salary_max %}
+                    – {% endif %}{% if job.salary_max %}₹{{ job.salary_max }}{% endif %} /year
+                </span>
+                {% endif %}
+                {% if job.deadline %}
+                <span style="color:var(--text-muted); font-size:0.88rem;">📅 Closes {{ job.deadline }}</span>
+                {% endif %}
+            </div>
+
+            <h3 style="font-size:1rem; font-weight:600; margin-bottom:0.75rem;">Job Description</h3>
+            <div style="color:var(--text-secondary); font-size:0.95rem; line-height:1.7; white-space:pre-line;">{{
+                job.description }}</div>
+        </div>
+
+        <div class="card">
+            <h3 style="font-size:1rem; font-weight:600; margin-bottom:0.75rem;">Required Skills</h3>
+            <div class="skill-tags">
+                {% for skill in job.required_skills_list %}
+                <span class="skill-tag" style="font-size:0.9rem; padding:0.3rem 0.85rem;">{{ skill }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+        <div class="card" style="text-align:center;">
+            {% if user.is_authenticated and user.is_candidate %}
+            {% if already_applied %}
+            <div style="color:var(--secondary); font-weight:600; margin-bottom:0.5rem;">✅ Already Applied</div>
+            <p style="color:var(--text-muted); font-size:0.88rem;">Track your application on your dashboard.</p>
+            <a href="{% url 'candidate_dashboard' %}" class="btn btn-secondary"
+                style="width:100%; justify-content:center; margin-top:1rem;">Go to Dashboard</a>
+            {% elif job.status == 'open' %}
+            <div style="font-size:2rem; margin-bottom:0.75rem;">🚀</div>
+            <h3 style="margin-bottom:0.5rem;">Ready to Apply?</h3>
+            <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:1rem;">Submit your application in
+                minutes.</p>
+            <a href="{% url 'job_apply' job.pk %}" class="btn btn-primary"
+                style="width:100%; justify-content:center;">Apply Now</a>
+            {% else %}
+            <p style="color:var(--text-muted);">This position is no longer accepting applications.</p>
+            {% endif %}
+            {% elif not user.is_authenticated %}
+            <div style="font-size:2rem; margin-bottom:0.75rem;">🔐</div>
+            <h3 style="margin-bottom:0.75rem;">Want to apply?</h3>
+            <a href="{% url 'candidate_signup' %}" class="btn btn-primary"
+                style="width:100%; justify-content:center; margin-bottom:0.5rem;">Create Account</a>
+            <a href="{% url 'login' %}" class="btn btn-secondary" style="width:100%; justify-content:center;">Login</a>
+            {% elif user.is_hr %}
+            {% if job.posted_by == user %}
+            <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                <a href="{% url 'applicant_list' job.pk %}" class="btn btn-primary" style="justify-content:center;">View
+                    Applicants ({{ job.application_count }})</a>
+                <a href="{% url 'job_edit' job.pk %}" class="btn btn-secondary" style="justify-content:center;">Edit
+                    Posting</a>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="card" style="margin-top:1rem;">
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.5rem;">Posted</p>
+            <p style="font-weight:500;">{{ job.created_at|date:"M d, Y" }}</p>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.75rem; margin-bottom:0.5rem;">Total
+                Applicants</p>
+            <p style="font-weight:500;">{{ job.application_count }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

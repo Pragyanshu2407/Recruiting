@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Apply — {{ job.title }} — FairHire{% endblock %}
+
+{% block content %}
+<a href="{% url 'job_detail' job.pk %}"
+    style="color:var(--text-secondary); text-decoration:none; font-size:0.9rem; display:inline-flex; align-items:center; gap:0.3rem; margin-bottom:1.5rem;">←
+    Back to Job</a>
+
+<div style="max-width:680px;">
+    <div class="page-header" style="margin-bottom:1rem;">
+        <div>
+            <h1 class="page-title">Apply: {{ job.title }}</h1>
+            <p class="page-subtitle">🏢 {% if job.posted_by.hr_profile.company_name %}{{
+                job.posted_by.hr_profile.company_name }}{% else %}{{ job.posted_by.username }}{% endif %}</p>
+        </div>
+    </div>
+
+    {% if user.candidate_profile.resume %}
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+        📎 You have a resume on your profile. Leave the resume field below blank to use it, or upload a new one for this
+        application.
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                {% endif %}
+                {% if field.help_text %}
+                <p class="helptext">{{ field.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div style="display:flex; gap:0.75rem; margin-top:0.5rem;">
+                <button type="submit" class="btn btn-primary">🚀 Submit Application</button>
+                <a href="{% url 'job_detail' job.pk %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
