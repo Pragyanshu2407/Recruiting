@@ -36,3 +36,18 @@ class JobApplicationAdmin(admin.ModelAdmin):
     list_display = ('candidate', 'job', 'status', 'applied_at')
     list_filter = ('status',)
     search_fields = ('candidate__username', 'job__title')
+
+
+@admin.register(ResumeParseResult)
+class ResumeParseResultAdmin(admin.ModelAdmin):
+    list_display = ('candidate', 'parsed_experience_years', 'parsed_education', 'parsed_at')
+    search_fields = ('candidate__user__username',)
+    readonly_fields = ('raw_text', 'parsed_at')
+
+
+@admin.register(ApplicationMatchScore)
+class ApplicationMatchScoreAdmin(admin.ModelAdmin):
+    list_display = ('application', 'score', 'skill_overlap_pct', 'text_similarity_pct', 'computed_at')
+    list_filter = ('score',)
+    readonly_fields = ('computed_at',)
+

@@ -23,6 +23,7 @@ urlpatterns = [
     path('candidate/dashboard/', views.candidate_dashboard, name='candidate_dashboard'),
     path('candidate/profile/', views.candidate_profile_edit, name='candidate_profile'),
     path('candidate/applications/', views.my_applications, name='my_applications'),
+    path('candidate/parse-resume/', views.parse_resume_view, name='parse_resume'),
 
     # Public Job Board
     path('jobs/', views.job_list, name='job_list'),

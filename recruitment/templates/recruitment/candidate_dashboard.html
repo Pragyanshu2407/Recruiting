@@ -38,6 +38,79 @@
 </div>
 {% endif %}
 
+<!-- Resume Intelligence Card (Phase 3) -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <div
+        style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+        <div>
+            <h2 style="font-size:1.05rem; font-weight:700; margin:0;">🧠 Resume Intelligence</h2>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;">
+                Auto-extract skills and experience from your uploaded resume.
+            </p>
+        </div>
+        {% if profile.resume %}
+        <form method="post" action="{% url 'parse_resume' %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm">
+                {% if parse_result %}🔄 Re-parse Resume{% else %}✨ Parse Resume{% endif %}
+            </button>
+        </form>
+        {% else %}
+        <a href="{% url 'candidate_profile' %}" class="btn btn-secondary btn-sm">Upload Resume First</a>
+        {% endif %}
+    </div>
+
+    {% if parse_result %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem;">
+        <div>
+            <p
+                style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:0.4rem;">
+                Detected Skills</p>
+            {% if parse_result.parsed_skills_list %}
+            <div class="skill-tags">
+                {% for skill in parse_result.parsed_skills_list %}
+                <span class="skill-tag">{{ skill }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:0.88rem;">No skills detected — try a richer resume.</p>
+            {% endif %}
+        </div>
+        <div>
+            <p
+                style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:0.4rem;">
+                Experience</p>
+            <p style="font-size:1.1rem; font-weight:700; color:var(--primary);">
+                {% if parse_result.parsed_experience_years %}
+                {{ parse_result.parsed_experience_years }} yr{{ parse_result.parsed_experience_years|pluralize }}
+                {% else %}—{% endif %}
+            </p>
+        </div>
+        <div>
+            <p
+                style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:0.4rem;">
+                Education</p>
+            <p style="font-size:0.9rem; color:var(--text-secondary);">
+                {{ parse_result.parsed_education|default:"— not detected" }}
+            </p>
+        </div>
+    </div>
+    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.75rem; margin-bottom:0;">
+        Last parsed: {{ parse_result.parsed_at|date:"M d, Y H:i" }}
+    </p>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">
+        {% if profile.resume %}
+        Click <strong>Parse Resume</strong> to auto-extract your skills and experience.
+        {% else %}
+        Upload your resume in <a href="{% url 'candidate_profile' %}" style="color:var(--primary);">Edit Profile</a> to
+        unlock this feature.
+        {% endif %}
+    </p>
+    {% endif %}
+</div>
+
+
 <!-- Recent Applications -->
 <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Recent Applications</h2>
 

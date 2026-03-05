@@ -20,6 +20,7 @@
         <thead>
             <tr>
                 <th>Candidate</th>
+                <th>Fit Score</th>
                 <th>Skills Match</th>
                 <th>Experience</th>
                 <th>Applied On</th>
@@ -37,6 +38,25 @@
                     {% if app.cover_letter %}
                     <div style="font-size:0.78rem; color:var(--primary); margin-top:3px;">Has cover letter</div>
                     {% endif %}
+                </td>
+                <td>
+                    {% if app.match_score %}
+                    {% with s=app.match_score %}
+                    <div style="display:inline-flex; flex-direction:column; align-items:center; gap:0.2rem;">
+                        <span style="
+                            display:inline-block;
+                            background:{% if s.score >= 70 %}#10b981{% elif s.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};
+                            color:#fff;
+                            font-weight:700;
+                            font-size:0.85rem;
+                            border-radius:9999px;
+                            padding:0.15rem 0.65rem;
+                            min-width:46px;
+                            text-align:center;">{{ s.score }}%</span>
+                        <span style="font-size:0.72rem; color:var(--text-muted);">{{ s.score_label }}</span>
+                    </div>
+                    {% endwith %}
+                    {% else %}—{% endif %}
                 </td>
                 <td>
                     {% if app.candidate.candidate_profile.skills %}
@@ -75,6 +95,7 @@
         </tbody>
     </table>
 </div>
+
 {% else %}
 <div class="empty-state card">
     <div style="font-size:3rem; margin-bottom:1rem;">📭</div>

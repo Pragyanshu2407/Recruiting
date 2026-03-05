@@ -64,11 +64,31 @@
             </div>
         </div>
         <div style="text-align:right; flex-shrink:0;">
+            {% if match_scores %}{% with score=match_scores|default_if_none:0 %}{% endwith %}{% endif %}
             {% if job.deadline %}
             <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;">Closes {{ job.deadline }}</p>
             {% endif %}
-            <a href="{% url 'job_detail' job.pk %}" class="btn btn-primary btn-sm">View & Apply →</a>
+            {% if match_scores %}
+            {% with ms=match_scores|dictsort:"0" %}{% endwith %}
+            {# Inline match score lookup via template tag workaround #}
+            {% for jid, sc in match_scores.items %}
+            {% if jid == job.pk %}
+            <div style="margin-bottom:0.6rem;">
+                <span style="
+                        display:inline-block;
+                        background:{% if sc >= 70 %}#10b981{% elif sc >= 40 %}#f59e0b{% else %}#ef4444{% endif %};
+                        color:#fff;
+                        font-weight:700;
+                        font-size:0.78rem;
+                        border-radius:9999px;
+                        padding:0.15rem 0.6rem;">{{ sc }}% Match</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            <a href="{% url 'job_detail' job.pk %}" class="btn btn-primary btn-sm">View &amp; Apply →</a>
         </div>
+
     </div>
     {% endfor %}
 </div>

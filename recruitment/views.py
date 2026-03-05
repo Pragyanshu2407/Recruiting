@@ -13,7 +13,12 @@ from .forms import (
     JobPostingForm, JobApplicationForm,
     ApplicationStatusForm, JobSearchForm,
 )
-from .models import CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication
+from .models import (
+    CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
+    ResumeParseResult, ApplicationMatchScore,
+)
+from .utils.resume_parser import parse_resume
+from .utils.match_scorer import compute_match_score, score_skills_overlap
 
 
 # ── Helpers / Mixins ─────────────────────────────────────────────────────────
@@ -171,7 +176,9 @@ def job_delete(request, pk):
 @hr_required
 def applicant_list(request, pk):
     job = get_object_or_404(JobPosting, pk=pk, posted_by=request.user)
-    applications = job.applications.select_related('candidate', 'candidate__candidate_profile').all()
+    applications = job.applications.select_related(
+        'candidate', 'candidate__candidate_profile'
+    ).prefetch_related('match_score').all()
     return render(request, 'recruitment/applicant_list.html', {'job': job, 'applications': applications})
 
 
@@ -215,7 +222,37 @@ def job_list(request):
                 if skill:
                     jobs = jobs.filter(required_skills__icontains=skill)
 
-    return render(request, 'recruitment/job_list.html', {'jobs': jobs, 'form': form})
+    # Phase 3: For logged-in candidates, compute a rough match % per job
+    match_scores = {}
+    if request.user.is_authenticated and request.user.is_candidate:
+        try:
+            from .utils.match_scorer import score_skills_overlap, score_text_similarity
+            candidate_skills = []
+            candidate_text = ""
+            try:
+                profile = request.user.candidate_profile
+                candidate_skills.extend(profile.skills_list())
+                candidate_text = profile.bio + " " + profile.skills + " " + profile.education
+            except Exception:
+                pass
+            try:
+                pr = request.user.candidate_profile.parse_result
+                candidate_skills.extend(pr.parsed_skills_list())
+                if pr.raw_text:
+                    candidate_text = pr.raw_text
+            except Exception:
+                pass
+
+            if candidate_skills or candidate_text.strip():
+                for job in jobs:
+                    skill_pct = score_skills_overlap(candidate_skills, job.required_skills_list())
+                    job_text = f"{job.title} {job.description} {job.required_skills}"
+                    text_pct = score_text_similarity(candidate_text, job_text)
+                    match_scores[job.pk] = min(100, max(0, round(skill_pct * 0.70 + text_pct * 0.30)))
+        except Exception:
+            pass
+
+    return render(request, 'recruitment/job_list.html', {'jobs': jobs, 'form': form, 'match_scores': match_scores})
 
 
 def job_detail(request, pk):
@@ -244,6 +281,52 @@ def job_apply(request, pk):
             application.job = job
             application.candidate = request.user
             application.save()
+
+            # ── Phase 3: compute & store match score on apply ────────────
+            try:
+                from .utils.match_scorer import score_text_similarity
+                required = job.required_skills_list()
+                candidate_skills = []
+                try:
+                    candidate_skills.extend(request.user.candidate_profile.skills_list())
+                except Exception:
+                    pass
+                try:
+                    candidate_skills.extend(
+                        request.user.candidate_profile.parse_result.parsed_skills_list()
+                    )
+                except Exception:
+                    pass
+
+                candidate_text = ""
+                try:
+                    candidate_text = request.user.candidate_profile.parse_result.raw_text or ""
+                except Exception:
+                    pass
+                if not candidate_text:
+                    try:
+                        p = request.user.candidate_profile
+                        candidate_text = " ".join(filter(None, [p.bio, p.skills, p.education]))
+                    except Exception:
+                        pass
+
+                job_text = f"{job.title} {job.description} {job.required_skills}"
+                skill_pct = score_skills_overlap(candidate_skills, required)
+                text_pct = score_text_similarity(candidate_text, job_text)
+                composite = min(100, max(0, round(skill_pct * 0.70 + text_pct * 0.30)))
+
+                ApplicationMatchScore.objects.update_or_create(
+                    application=application,
+                    defaults={
+                        'score': composite,
+                        'skill_overlap_pct': skill_pct,
+                        'text_similarity_pct': text_pct,
+                    }
+                )
+            except Exception:
+                pass  # Scoring is best-effort; never block an application
+            # ────────────────────────────────────────────────────────────
+
             messages.success(request, f"Applied to '{job.title}' successfully! Good luck!")
             return redirect('my_applications')
     else:
@@ -257,7 +340,7 @@ def job_apply(request, pk):
 def candidate_dashboard(request):
     applications = JobApplication.objects.filter(
         candidate=request.user
-    ).select_related('job', 'job__posted_by', 'job__posted_by__hr_profile')
+    ).select_related('job', 'job__posted_by', 'job__posted_by__hr_profile').prefetch_related('match_score')
 
     status_counts = {}
     for choice_val, _ in JobApplication.STATUS_CHOICES:
@@ -266,12 +349,16 @@ def candidate_dashboard(request):
     profile, _ = CandidateProfile.objects.get_or_create(user=request.user)
     profile_complete = bool(profile.skills and profile.education)
 
+    # Phase 3: resume parse result (None if not yet parsed)
+    parse_result = getattr(profile, 'parse_result', None)
+
     context = {
         'applications': applications,
         'status_counts': status_counts,
         'profile': profile,
         'profile_complete': profile_complete,
         'open_jobs_count': JobPosting.objects.filter(status=JobPosting.STATUS_OPEN).count(),
+        'parse_result': parse_result,
     }
     return render(request, 'recruitment/candidate_dashboard.html', context)
 
@@ -294,5 +381,60 @@ def candidate_profile_edit(request):
 def my_applications(request):
     applications = JobApplication.objects.filter(
         candidate=request.user
-    ).select_related('job', 'job__posted_by', 'job__posted_by__hr_profile')
+    ).select_related('job', 'job__posted_by', 'job__posted_by__hr_profile').prefetch_related('match_score')
     return render(request, 'recruitment/my_applications.html', {'applications': applications})
+
+
+# ── Phase 3: Resume Parsing ───────────────────────────────────────────────────
+
+@candidate_required
+def parse_resume_view(request):
+    """POST-only view that triggers resume parsing for the logged-in candidate."""
+    if request.method != 'POST':
+        return redirect('candidate_dashboard')
+
+    profile, _ = CandidateProfile.objects.get_or_create(user=request.user)
+
+    if not profile.resume:
+        messages.warning(request, "Please upload your resume first via Edit Profile.")
+        return redirect('candidate_profile')
+
+    try:
+        result = parse_resume(profile.resume.path)
+
+        skills_str = ', '.join(result['skills'])
+        ResumeParseResult.objects.update_or_create(
+            candidate=profile,
+            defaults={
+                'raw_text': result['raw_text'],
+                'parsed_skills': skills_str,
+                'parsed_experience_years': result['experience_years'],
+                'parsed_education': result['education'],
+            }
+        )
+
+        # Merge parsed skills back into the profile's manual skills field (union)
+        existing = set(s.strip().lower() for s in profile.skills.split(',') if s.strip())
+        new_skills = [s for s in result['skills'] if s.lower() not in existing]
+        if new_skills:
+            merged = profile.skills + (', ' if profile.skills else '') + ', '.join(new_skills)
+            profile.skills = merged
+
+        # Backfill experience_years and education if not already set
+        if result['experience_years'] and not profile.experience_years:
+            profile.experience_years = result['experience_years']
+        if result['education'] and not profile.education:
+            profile.education = result['education']
+
+        profile.save()
+
+        skill_count = len(result['skills'])
+        messages.success(
+            request,
+            f"Resume parsed successfully! Found {skill_count} skill{'s' if skill_count != 1 else ''}, "
+            f"{result['experience_years'] or 0} years of experience."
+        )
+    except Exception as e:
+        messages.error(request, f"Could not parse resume: {e}")
+
+    return redirect('candidate_dashboard')
