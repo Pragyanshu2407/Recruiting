@@ -151,3 +151,56 @@ class JobApplication(models.Model):
 
     def __str__(self):
         return f"{self.candidate.username} → {self.job.title}"
+
+
+# ── Phase 3: Resume Parsing & Match Scoring ───────────────────────────────────
+
+class ResumeParseResult(models.Model):
+    """Stores structured data extracted from a candidate's uploaded resume."""
+    candidate = models.OneToOneField(
+        CandidateProfile, on_delete=models.CASCADE, related_name='parse_result'
+    )
+    raw_text = models.TextField(blank=True)
+    parsed_skills = models.TextField(
+        blank=True, help_text="Comma-separated skills extracted from the resume"
+    )
+    parsed_experience_years = models.PositiveIntegerField(null=True, blank=True)
+    parsed_education = models.CharField(max_length=400, blank=True)
+    parsed_at = models.DateTimeField(auto_now=True)
+
+    def parsed_skills_list(self) -> list:
+        """Return parsed skills as a Python list."""
+        return [s.strip() for s in self.parsed_skills.split(',') if s.strip()]
+
+    def __str__(self):
+        return f"ParseResult for {self.candidate}"
+
+
+class ApplicationMatchScore(models.Model):
+    """Stores the computed fit score for a job application."""
+    application = models.OneToOneField(
+        JobApplication, on_delete=models.CASCADE, related_name='match_score'
+    )
+    score = models.PositiveSmallIntegerField(default=0)          # 0-100
+    skill_overlap_pct = models.FloatField(default=0.0)
+    text_similarity_pct = models.FloatField(default=0.0)
+    computed_at = models.DateTimeField(auto_now=True)
+
+    def score_label(self) -> str:
+        """Return a human-readable strength label."""
+        if self.score >= 70:
+            return "Strong"
+        elif self.score >= 40:
+            return "Moderate"
+        return "Weak"
+
+    def score_color(self) -> str:
+        """Return a CSS colour string corresponding to the score level."""
+        if self.score >= 70:
+            return "#10b981"   # green
+        elif self.score >= 40:
+            return "#f59e0b"   # amber
+        return "#ef4444"       # red
+
+    def __str__(self):
+        return f"{self.application} — {self.score}%"

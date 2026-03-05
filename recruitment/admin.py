@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication
+from .models import (
+    CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
+    ResumeParseResult, ApplicationMatchScore,
+)
 
 
 @admin.register(CustomUser)
