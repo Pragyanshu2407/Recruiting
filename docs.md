@@ -55,11 +55,13 @@ FairHire/
 **Implementation Details:**
 
 1.  **Custom User Model (`recruitment/models.py`):**
-    *   Created `CustomUser` inheriting from `AbstractUser`.
-    *   Added fields:
-        *   `is_hr`: BooleanField (default=False)
-        *   `is_candidate`: BooleanField (default=False)
-    *   Updated `AUTH_USER_MODEL` in `settings.py` to `'recruitment.CustomUser'`.
+    *   `CustomUser` inherits from `AbstractUser` with:
+        *   `is_hr` and `is_candidate` flags
+        *   unique `email`
+    *   Profiles:
+        *   `HRProfile` (company info, logo, website, description)
+        *   `CandidateProfile` (bio, skills, experience_years, education, resume, links, gender)
+    *   Updated `AUTH_USER_MODEL` in `settings.py` → `'recruitment.CustomUser'`.
 
 2.  **Forms (`recruitment/forms.py`):**
     *   `HRSignUpForm`: Inherits `UserCreationForm`. Sets `is_hr=True` on save.
@@ -70,20 +72,19 @@ FairHire/
         *   `HRSignUpView`: Uses `HRSignUpForm`, redirects to `hr_dashboard`.
         *   `CandidateSignUpView`: Uses `CandidateSignUpForm`, redirects to `candidate_dashboard`.
     *   **Login:**
-        *   `CustomLoginView`: Inherits `LoginView`.
-        *   Overrides `get_success_url` to redirect HRs to `/hr_dashboard/` and Candidates to `/candidate_dashboard/`.
+        *   `CustomLoginView`: Inherits `LoginView`. Redirects using URL names:
+            *   HR → `reverse('hr_dashboard')`
+            *   Candidate → `reverse('candidate_dashboard')`
     *   **Dashboards:**
         *   `hr_dashboard`: Restricted to HR users.
         *   `candidate_dashboard`: Restricted to Candidate users.
     *   **Home:** Simple landing page.
 
 4.  **URLs (`recruitment/urls.py`):**
-    *   `signup/hr/` -> `HRSignUpView`
-    *   `signup/candidate/` -> `CandidateSignUpView`
-    *   `login/` -> `CustomLoginView`
-    *   `logout/` -> `LogoutView`
-    *   `hr_dashboard/` -> `hr_dashboard`
-    *   `candidate_dashboard/` -> `candidate_dashboard`
+    *   General: `login/`, `logout/`, `signup/hr/`, `signup/candidate/`
+    *   HR: `hr/dashboard/`, `hr/profile/`, `hr/jobs/new|edit|delete|applicants|bias-check`, `hr/applications/<id>/status/`
+    *   Candidate: `candidate/dashboard/`, `candidate/profile/`, `candidate/applications/`, `candidate/parse-resume/`
+    *   Public: `jobs/`, `jobs/<id>/`, `jobs/<id>/apply/`
 
 5.  **Templates (`recruitment/templates/`):**
     *   `base.html`: Main layout with navigation that adapts to login state.
@@ -92,3 +93,59 @@ FairHire/
     *   `registration/login.html`: Login form.
     *   `recruitment/hr_dashboard.html`: HR specific dashboard.
     *   `recruitment/candidate_dashboard.html`: Candidate specific dashboard.
+
+---
+
+## Phase 2: Core Recruitment Features
+
+**Models (`recruitment/models.py`):**
+- `JobPosting`: title, description, required_skills (CSV), location, location_type, salary range, deadline, status; helpers `required_skills_list()`, `application_count()`.
+- `JobApplication`: FK job + candidate, cover_letter, optional resume_snapshot, status, hr_notes; unique `(job, candidate)`; `STATUS_COLORS`.
+
+**Candidate Tools:**
+- `candidate_dashboard`, `candidate_profile_edit`, `my_applications`
+- Job board: `job_list`, `job_detail`, `job_apply`
+
+**HR Tools:**
+- `hr_dashboard`, `hr_profile_edit`
+- Job CRUD: `job_create`, `job_edit`, `job_delete`
+- Applicants & status: `applicant_list`, `application_update_status`
+
+**Templates:** job list/detail/apply, applicant list, status form, job form, profiles.
+
+UI Enhancement:
+- Job form now includes role-based Skill Presets (Frontend, Backend, ML, Data Engineering, DevOps, Mobile, Full Stack). Selecting a preset renders checkboxes you can add into the “Required Skills” field. Selected skills are merged and deduplicated as comma‑separated values.
+
+---
+
+## Phase 3: AI & Fair Hiring Core
+
+**Resume Parsing (`recruitment/utils/resume_parser.py`):**
+- Extracts text from PDF/DOCX (PyMuPDF, python-docx).
+- Parses skills via dictionary matching, years of experience via regex, and education lines.
+- Stored in `ResumeParseResult`; merged back into `CandidateProfile` on parse.
+
+**AI Job Matching (`recruitment/utils/match_scorer.py`):**
+- Skill overlap (70%) + TF‑IDF cosine similarity (30%, scikit‑learn).
+- Stored in `ApplicationMatchScore`; also displayed in lists.
+
+**Custom Bias Agent (`recruitment/utils/bias_agent.py`):**
+- HR defines `JobBiasCriteria` per job (experience_min, college_tier, gender, custom).
+- `run_bias_agent(application)` evaluates and stores `ApplicationBiasResult`.
+- Bulk re-check available via `run_bias_check_view`.
+
+Value formats:
+- Experience: supports `5`, `3+`, or ranges like `2-4` (inclusive).
+- College Tier: `Tier 1`/`Tier 2` (IISc is matched precisely, not generic `isc`).
+- Gender: e.g., `Female`, `Male`, `Non-binary`, or `Any`.
+- Custom: any keyword/phrase searched across profile + parsed resume text.
+**Bias Detection in Job Descriptions (`recruitment/utils/bias_detector.py`):**
+- Flags gendered/ageist/ableist terms on job create/edit with actionable suggestions.
+
+**URLs/Views:** See Phase 2; Phase 3 hooks are integrated in create/edit/apply flows.
+
+**Dependencies:** Ensure the venv has:
+- `scikit-learn`, `python-docx`, `PyMuPDF`
+
+**Notes:**
+- All AI features fail gracefully if dependencies or data are missing — they never block user flows.

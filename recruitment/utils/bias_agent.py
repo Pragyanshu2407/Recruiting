@@ -18,9 +18,9 @@ from __future__ import annotations
 # ── Tier keyword maps ─────────────────────────────────────────────────────────
 
 _TIER1_KEYWORDS = [
-    "iit", "iim", "isc", "bits pilani", "nit trichy", "nit surathkal",
-    "nit warangal", "nit calicut", "iisc", "iiit hyderabad", "dtu", "nsit",
-    "anna university", "vit", "srm",  # extended Tier 1 for broader coverage
+    "iit", "iim", "iisc", "indian institute of science", "bits pilani",
+    "nit trichy", "nit surathkal", "nit warangal", "nit calicut",
+    "iiit hyderabad", "dtu", "nsit", "anna university", "vit", "srm",
 ]
 _TIER2_KEYWORDS = [
     "nit", "iiit", "bits", "thapar", "pec", "coep", "sjce", "mnnit",
@@ -42,11 +42,42 @@ def _education_text(profile) -> str:
 # ── Individual evaluators ─────────────────────────────────────────────────────
 
 def evaluate_experience(profile, value: str) -> tuple[bool, str]:
-    """Check if the candidate meets the minimum experience requirement."""
-    try:
-        required = int(value)
-    except (ValueError, TypeError):
-        return True, "Invalid criterion value — skipped"
+    """
+    Check if the candidate meets the experience requirement.
+    Supports the following formats for `value`:
+      - '3'   → minimum 3 years
+      - '3+'  → minimum 3 years
+      - '2-4' → between 2 and 4 years inclusive
+    """
+    val = (value or "").strip().replace(" ", "")
+    # Normalise unicode dashes to ASCII hyphen
+    val = val.replace("–", "-").replace("—", "-")
+    min_req = None
+    max_req = None
+
+    if not val:
+        return True, "No minimum specified"
+
+    # Range format X-Y
+    if "-" in val:
+        parts = val.split("-", 1)
+        try:
+            min_req = int(parts[0])
+            max_req = int(parts[1])
+        except (ValueError, TypeError):
+            return True, "Invalid criterion value — skipped"
+    # Minimum with plus X+
+    elif val.endswith("+"):
+        try:
+            min_req = int(val[:-1])
+        except (ValueError, TypeError):
+            return True, "Invalid criterion value — skipped"
+    # Simple minimum X
+    else:
+        try:
+            min_req = int(val)
+        except (ValueError, TypeError):
+            return True, "Invalid criterion value — skipped"
 
     actual = profile.experience_years or 0
     # Also check parsed result as a fallback
@@ -57,9 +88,15 @@ def evaluate_experience(profile, value: str) -> tuple[bool, str]:
     except Exception:
         pass
 
-    if actual >= required:
-        return True, f"{actual} yr(s) ≥ required {required} yr(s)"
-    return False, f"Only {actual} yr(s) — requires {required}+ yr(s)"
+    if min_req is not None and max_req is not None:
+        passed = (min_req <= actual <= max_req)
+        detail = f"{actual} yr(s) vs required {min_req}-{max_req} yr(s)"
+        return (passed, detail if passed else f"Only {actual} yr(s) — requires {min_req}-{max_req} yr(s)")
+    else:
+        # Only a minimum
+        passed = (actual >= (min_req or 0))
+        req = f"{min_req}+ yr(s)"
+        return (passed, f"{actual} yr(s) ≥ required {req}" if passed else f"Only {actual} yr(s) — requires {req}")
 
 
 def evaluate_college_tier(profile, value: str) -> tuple[bool, str]:

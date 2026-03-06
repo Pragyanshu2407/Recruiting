@@ -198,7 +198,7 @@ class JobBiasCriteriaForm(forms.ModelForm):
         widgets = {
             'criterion': forms.Select(attrs={'class': 'bias-criterion-select'}),
             'value': forms.TextInput(attrs={
-                'placeholder': 'e.g. 5  /  Tier 1  /  Female  /  keyword',
+                'placeholder': 'e.g. 5  /  3+  /  2-4  /  Tier 1  /  Female  /  keyword',
                 'class': 'bias-value-input',
             }),
             'description': forms.TextInput(attrs={

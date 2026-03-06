@@ -17,6 +17,7 @@
             <tr>
                 <th>Job Title</th>
                 <th>Company</th>
+                <th>Skills Gap Analysis</th>
                 <th>Applied On</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -33,11 +34,32 @@
                             app.job.get_location_type_display }}</span>
                     </div>
                 </td>
+
                 <td style="color:var(--text-secondary);">
                     {% if app.job.posted_by.hr_profile.company_name %}{{ app.job.posted_by.hr_profile.company_name }}
                     {% else %}{{ app.job.posted_by.username }}{% endif %}
                 </td>
+
+                <!-- Skills Gap -->
+                <td>
+                    {% if app.missing_skills %}
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem;">Missing required
+                        skills:</div>
+                    <div class="skill-tags">
+                        {% for ms in app.missing_skills %}
+                        <span class="skill-tag" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca;">{{
+                            ms }}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <span
+                        style="font-size:0.8rem; color:#059669; font-weight:600; background:#d1fae5; padding:0.2rem 0.6rem; border-radius:9999px;">✅
+                        Strong Match</span>
+                    {% endif %}
+                </td>
+
                 <td style="color:var(--text-muted); font-size:0.88rem;">{{ app.applied_at|date:"M d, Y" }}</td>
+
                 <td>
                     <span class="badge badge-{{ app.status }}">{{ app.get_status_display }}</span>
                     {% if app.updated_at != app.applied_at %}
@@ -45,6 +67,7 @@
                         app.updated_at|date:"M d" }}</div>
                     {% endif %}
                 </td>
+
                 <td><a href="{% url 'job_detail' app.job.pk %}" class="btn btn-secondary btn-sm">View Job</a></td>
             </tr>
             {% endfor %}

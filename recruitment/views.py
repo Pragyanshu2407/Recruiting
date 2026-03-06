@@ -20,8 +20,9 @@ from .models import (
     JobBiasCriteria, ApplicationBiasResult,
 )
 from .utils.resume_parser import parse_resume
-from .utils.match_scorer import compute_match_score, score_skills_overlap
+from .utils.match_scorer import compute_match_score, score_skills_overlap, analyze_skill_gap
 from .utils.bias_agent import run_bias_agent
+from .utils.bias_detector import scan_job_description
 
 
 # ── Helpers / Mixins ─────────────────────────────────────────────────────────
@@ -86,12 +87,13 @@ class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
 
     def get_success_url(self):
+        from django.urls import reverse
         user = self.request.user
         if user.is_hr:
-            return '/hr_dashboard/'
+            return reverse('hr_dashboard')
         elif user.is_candidate:
-            return '/candidate_dashboard/'
-        return '/'
+            return reverse('candidate_dashboard')
+        return reverse('home')
 
 
 # ── General Views ────────────────────────────────────────────────────────────
@@ -148,6 +150,12 @@ def job_create(request):
             job.save()
             bias_formset.instance = job
             bias_formset.save()
+            
+            # Phase 3: Bias Detection
+            warnings = scan_job_description(job.description)
+            for w in warnings:
+                messages.warning(request, f"Bias Warning: {w}")
+
             messages.success(request, f"Job '{job.title}' posted successfully!")
             return redirect('hr_dashboard')
     else:
@@ -167,6 +175,12 @@ def job_edit(request, pk):
         if form.is_valid() and bias_formset.is_valid():
             form.save()
             bias_formset.save()
+
+            # Phase 3: Bias Detection
+            warnings = scan_job_description(job.description)
+            for w in warnings:
+                messages.warning(request, f"Bias Warning: {w}")
+
             messages.success(request, "Job updated successfully!")
             return redirect('hr_dashboard')
     else:
@@ -194,6 +208,68 @@ def applicant_list(request, pk):
         'candidate', 'candidate__candidate_profile'
     ).prefetch_related('match_score', 'bias_results__criterion').all()
 
+    # Ensure Phase 3 data is populated for older applications:
+    # - compute match score if missing
+    # - run bias agent for missing results
+    try:
+        from .utils.match_scorer import compute_match_score
+        from .utils.bias_agent import run_bias_agent
+    except Exception:
+        compute_match_score = None
+        run_bias_agent = None
+
+    criteria = list(job.bias_criteria.all())
+    crit_count = len(criteria)
+
+    for app in applications:
+        # Backfill match score
+        if compute_match_score and not hasattr(app, 'match_score'):
+            try:
+                from .models import ApplicationMatchScore
+                score = compute_match_score(app)
+                ApplicationMatchScore.objects.update_or_create(
+                    application=app,
+                    defaults={
+                        'score': score,
+                        'skill_overlap_pct': 0.0,
+                        'text_similarity_pct': 0.0,
+                    }
+                )
+            except Exception:
+                pass
+        # Backfill bias results (if fewer results than criteria)
+        if run_bias_agent and crit_count:
+            try:
+                existing = getattr(app, 'bias_results', None)
+                existing_count = existing.count() if existing is not None else 0
+                if existing_count < crit_count:
+                    run_bias_agent(app)
+            except Exception:
+                pass
+
+    # Compute skills display (top 3 + extra count) for each application to avoid complex template logic
+    for app in applications:
+        skills = []
+        try:
+            skills.extend(app.candidate.candidate_profile.skills_list())
+        except Exception:
+            pass
+        try:
+            pr = app.candidate.candidate_profile.parse_result
+            skills.extend(pr.parsed_skills_list())
+        except Exception:
+            pass
+        # Deduplicate preserving order
+        seen = set()
+        ordered = []
+        for s in skills:
+            key = s.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                ordered.append(s)
+        app.display_skills_top3 = ordered[:3]
+        app.display_skills_extra_count = max(0, len(ordered) - 3)
+
     # Build a nested lookup: {app.pk: {criterion.pk: result}} for template use
     bias_criteria = list(job.bias_criteria.all())
     bias_results_map = {}
@@ -201,11 +277,17 @@ def applicant_list(request, pk):
         results_by_criterion = {r.criterion_id: r for r in app.bias_results.all()}
         bias_results_map[app.pk] = results_by_criterion
 
+    # Phase 3: Blind Review Mode
+    blind_mode = request.GET.get('blind') in ('1', 'true', 'True')
+
     return render(request, 'recruitment/applicant_list.html', {
         'job': job,
         'applications': applications,
         'bias_criteria': bias_criteria,
         'bias_results_map': bias_results_map,
+        'blind_mode': blind_mode,
+        'applications_count': applications.count(),
+        'applications_plural': '' if applications.count() == 1 else 's',
     })
 
 
@@ -415,6 +497,24 @@ def my_applications(request):
     applications = JobApplication.objects.filter(
         candidate=request.user
     ).select_related('job', 'job__posted_by', 'job__posted_by__hr_profile').prefetch_related('match_score')
+
+    # Phase 3: Skills Gap Analysis
+    for app in applications:
+        req_skills = app.job.required_skills_list()
+        # combine parsed skills (if any) and manual profile skills
+        cand_skills = []
+        try:
+            cand_skills.extend(request.user.candidate_profile.skills_list())
+        except Exception:
+            pass
+        try:
+            cand_skills.extend(request.user.candidate_profile.parse_result.parsed_skills_list())
+        except Exception:
+            pass
+        
+        # Determine missing skills
+        app.missing_skills = analyze_skill_gap(cand_skills, req_skills) if req_skills else []
+
     return render(request, 'recruitment/my_applications.html', {'applications': applications})
 
 
@@ -505,4 +605,3 @@ def run_bias_check_view(request, pk):
         f"Bias check completed: evaluated {evaluated} applicant(s) against {criteria_count} criterion/criteria."
     )
     return redirect('applicant_list', pk=pk)
-

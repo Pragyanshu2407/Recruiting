@@ -41,6 +41,25 @@ def score_skills_overlap(candidate_skills: list[str], required_skills: list[str]
     return round((matched / len(required_norm)) * 100, 1)
 
 
+def analyze_skill_gap(candidate_skills: list[str], required_skills: list[str]) -> list[str]:
+    """
+    Return a list of required skills that the candidate is missing.
+    Matches are case-insensitive and whitespace-stripped.
+    """
+    if not required_skills:
+        return []
+
+    required_norm_map = {_normalise(req): req for req in required_skills}
+    candidate_norm = {_normalise(s) for s in candidate_skills}
+
+    missing = []
+    for norm_req, original_req in required_norm_map.items():
+        if norm_req not in candidate_norm:
+            missing.append(original_req)
+
+    return missing
+
+
 # ---------------------------------------------------------------------------
 # Text similarity (TF-IDF cosine)
 # ---------------------------------------------------------------------------

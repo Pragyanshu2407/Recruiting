@@ -15,23 +15,54 @@
             <div class="form-group">
                 <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                 {{ form.title }}
-                {% if form.title.errors %}<ul class="errorlist">{% for e in form.title.errors %}<li>{{ e }}</li>{%
-                    endfor %}</ul>{% endif %}
+                {% if form.title.errors %}
+                <ul class="errorlist">
+                    {% for e in form.title.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                 {{ form.description }}
-                {% if form.description.errors %}<ul class="errorlist">{% for e in form.description.errors %}<li>{{ e }}
-                    </li>{% endfor %}</ul>{% endif %}
+                {% if form.description.errors %}
+                <ul class="errorlist">
+                    {% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="{{ form.required_skills.id_for_label }}">{{ form.required_skills.label }}</label>
                 {{ form.required_skills }}
                 <p class="helptext">{{ form.required_skills.help_text }}</p>
-                {% if form.required_skills.errors %}<ul class="errorlist">{% for e in form.required_skills.errors %}<li>
-                        {{ e }}</li>{% endfor %}</ul>{% endif %}
+                {% if form.required_skills.errors %}
+                <ul class="errorlist">
+                    {% for e in form.required_skills.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+                
+                <!-- Role-based Skill Presets -->
+                <div style="margin-top:0.75rem;">
+                    <label style="display:block; font-weight:600; margin-bottom:0.25rem;">Skill Presets (optional)</label>
+                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                        <select id="skill-preset-select" class="form-select" style="min-width:220px;">
+                            <option value="">Choose a role preset…</option>
+                            <option value="frontend">Frontend</option>
+                            <option value="backend">Backend</option>
+                            <option value="ml">Machine Learning</option>
+                            <option value="data">Data Engineering</option>
+                            <option value="devops">DevOps</option>
+                            <option value="mobile">Mobile</option>
+                            <option value="fullstack">Full Stack</option>
+                        </select>
+                        <button type="button" id="add-selected-skills" class="btn btn-secondary btn-sm" disabled>Add Selected Skills</button>
+                        <button type="button" id="clear-selected-skills" class="btn btn-secondary btn-sm" disabled>Clear Selected</button>
+                    </div>
+                    <div id="preset-skill-list" style="margin-top:0.5rem; display:none; padding:0.6rem; border:1px solid var(--border,#e5e7eb); border-radius:8px; background:#f9fafb;">
+                        <!-- checkboxes injected here -->
+                    </div>
+                </div>
             </div>
 
             <div class="form-row">
@@ -132,6 +163,11 @@
         var addBtn = document.getElementById('add-bias-row');
         var totalForms = document.getElementById('id_bias_criteria-TOTAL_FORMS');
         var warning = document.getElementById('bias-gender-warn');
+        var presetSelect = document.getElementById('skill-preset-select');
+        var presetList = document.getElementById('preset-skill-list');
+        var addSelectedBtn = document.getElementById('add-selected-skills');
+        var clearSelectedBtn = document.getElementById('clear-selected-skills');
+        var reqSkillsInput = document.getElementById('id_required_skills');
 
         if (!addBtn || !container || !totalForms) return;
 
@@ -175,6 +211,88 @@
             if (warning) warning.style.display = hasGender ? 'block' : 'none';
         }
         bindGenderWarn();
+
+        // ── Role-based Skill Presets ───────────────────────────────────────
+        var SKILL_PRESETS = {
+            frontend: ['HTML', 'CSS', 'JavaScript', 'TypeScript', 'React', 'Redux', 'Vue', 'Angular', 'Webpack'],
+            backend: ['Python', 'Django', 'REST', 'FastAPI', 'PostgreSQL', 'MySQL', 'Redis', 'Docker', 'Celery'],
+            ml: ['Python', 'NumPy', 'Pandas', 'scikit-learn', 'TensorFlow', 'PyTorch', 'NLP'],
+            data: ['SQL', 'Data Modeling', 'ETL', 'Airflow', 'Spark', 'Kafka', 'dbt'],
+            devops: ['Linux', 'Docker', 'Kubernetes', 'Terraform', 'CI/CD', 'AWS', 'NGINX'],
+            mobile: ['Android', 'Kotlin', 'Swift', 'Flutter', 'React Native'],
+            fullstack: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Express', 'PostgreSQL', 'Docker']
+        };
+
+        function renderPresetSkills(role) {
+            presetList.innerHTML = '';
+            if (!role || !SKILL_PRESETS[role]) {
+                presetList.style.display = 'none';
+                addSelectedBtn.disabled = true;
+                clearSelectedBtn.disabled = true;
+                return;
+            }
+            var skills = SKILL_PRESETS[role];
+            var frag = document.createDocumentFragment();
+            skills.forEach(function (skill, idx) {
+                var id = 'preset-skill-' + idx;
+                var label = document.createElement('label');
+                label.setAttribute('for', id);
+                label.style.display = 'inline-flex';
+                label.style.alignItems = 'center';
+                label.style.gap = '0.35rem';
+                label.style.margin = '0.25rem 0.5rem 0.25rem 0';
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.id = id;
+                cb.value = skill;
+                label.appendChild(cb);
+                var span = document.createElement('span');
+                span.textContent = skill;
+                label.appendChild(span);
+                frag.appendChild(label);
+            });
+            presetList.appendChild(frag);
+            presetList.style.display = 'block';
+            addSelectedBtn.disabled = false;
+            clearSelectedBtn.disabled = false;
+        }
+
+        if (presetSelect) {
+            presetSelect.addEventListener('change', function () {
+                renderPresetSkills(this.value);
+            });
+        }
+
+        function dedupeCSV(values) {
+            var seen = new Set();
+            var out = [];
+            values.forEach(function (v) {
+                var norm = v.trim().toLowerCase();
+                if (norm && !seen.has(norm)) {
+                    seen.add(norm);
+                    // Preserve original casing of first occurrence
+                    out.push(v.trim());
+                }
+            });
+            return out;
+        }
+
+        if (addSelectedBtn && reqSkillsInput) {
+            addSelectedBtn.addEventListener('click', function () {
+                var selected = Array.from(presetList.querySelectorAll('input[type=checkbox]:checked')).map(function (cb) {
+                    return cb.value;
+                });
+                var existing = (reqSkillsInput.value || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                var merged = dedupeCSV(existing.concat(selected));
+                reqSkillsInput.value = merged.join(', ');
+            });
+        }
+
+        if (clearSelectedBtn) {
+            clearSelectedBtn.addEventListener('click', function () {
+                presetList.querySelectorAll('input[type=checkbox]').forEach(function (cb) { cb.checked = false; });
+            });
+        }
     })();
 </script>
 {% endblock %}
