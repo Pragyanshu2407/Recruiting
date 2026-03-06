@@ -2,7 +2,7 @@
 {% block title %}{{ action }} Job Posting — FairHire{% endblock %}
 
 {% block content %}
-<div style="max-width:720px;">
+<div style="max-width:820px;">
     <div class="page-header">
         <h1 class="page-title">{{ action }} Job Posting</h1>
         {% if job %}<a href="{% url 'job_detail' job.pk %}" class="btn btn-secondary">View Posting</a>{% endif %}
@@ -15,7 +15,8 @@
             <div class="form-group">
                 <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                 {{ form.title }}
-                {% if form.title.errors %}<ul class="errorlist">{% for e in form.title.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {% if form.title.errors %}<ul class="errorlist">{% for e in form.title.errors %}<li>{{ e }}</li>{%
+                    endfor %}</ul>{% endif %}
             </div>
 
             <div class="form-group">
@@ -35,36 +36,87 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="{{ form.location.id_for_label }}">Location</label>
-                    {{ form.location }}
+                    <label>Location</label>{{ form.location }}
                 </div>
                 <div class="form-group">
-                    <label for="{{ form.location_type.id_for_label }}">Work Mode</label>
-                    {{ form.location_type }}
+                    <label>Work Mode</label>{{ form.location_type }}
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="{{ form.salary_min.id_for_label }}">{{ form.salary_min.label }}</label>
-                    {{ form.salary_min }}
+                    <label>{{ form.salary_min.label }}</label>{{ form.salary_min }}
                 </div>
                 <div class="form-group">
-                    <label for="{{ form.salary_max.id_for_label }}">{{ form.salary_max.label }}</label>
-                    {{ form.salary_max }}
+                    <label>{{ form.salary_max.label }}</label>{{ form.salary_max }}
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="{{ form.deadline.id_for_label }}">Application Deadline</label>
-                    {{ form.deadline }}
+                    <label>Application Deadline</label>{{ form.deadline }}
                 </div>
                 <div class="form-group">
-                    <label for="{{ form.status.id_for_label }}">Status</label>
-                    {{ form.status }}
+                    <label>Status</label>{{ form.status }}
                 </div>
             </div>
+
+            <!-- ── Bias / Hiring Criteria ── -->
+            <hr style="margin:1.5rem 0; border-color:var(--border-color,#e5e7eb);">
+
+            <div style="margin-bottom:0.75rem;">
+                <h2 style="font-size:1rem; font-weight:700; margin-bottom:0.2rem;">⚡ Hiring Criteria (Bias Rules)</h2>
+                <p style="font-size:0.83rem; color:var(--text-secondary,#6b7280); margin:0;">
+                    Define rules the Bias Agent uses to evaluate applicants.
+                    Results (✅ / ❌) appear on the Applicant List — HR eyes only.
+                </p>
+            </div>
+
+            <div id="bias-gender-warn"
+                style="display:none; background:#fff7ed; border:1px solid #fb923c; border-radius:8px; padding:0.65rem 0.9rem; font-size:0.82rem; color:#c2410c; margin-bottom:0.75rem;">
+                ⚠️ <strong>Note:</strong> Gender-based criteria may be legally sensitive. Use only for documented
+                diversity programmes.
+            </div>
+
+            {{ bias_formset.management_form }}
+
+            <!-- Column headers -->
+            <div
+                style="display:grid; grid-template-columns:180px 1fr 1fr 80px; gap:0.5rem; padding:0 0.6rem; margin-bottom:0.3rem;">
+                <span
+                    style="font-size:0.75rem; font-weight:600; color:var(--text-muted,#9ca3af); text-transform:uppercase;">Rule
+                    Type</span>
+                <span
+                    style="font-size:0.75rem; font-weight:600; color:var(--text-muted,#9ca3af); text-transform:uppercase;">Value</span>
+                <span
+                    style="font-size:0.75rem; font-weight:600; color:var(--text-muted,#9ca3af); text-transform:uppercase;">Label
+                    (optional)</span>
+                <span
+                    style="font-size:0.75rem; font-weight:600; color:var(--text-muted,#9ca3af); text-transform:uppercase;">Remove</span>
+            </div>
+
+            <div id="bias-formset-container">
+                {% for bf in bias_formset %}
+                <div class="bias-row"
+                    style="display:grid; grid-template-columns:180px 1fr 1fr 80px; gap:0.5rem; align-items:center; padding:0.5rem 0.6rem; background:var(--bg-secondary,#f9fafb); border-radius:8px; margin-bottom:0.4rem;">
+                    {{ bf.id }}
+                    <div>{{ bf.criterion }}{% if bf.criterion.errors %}<p
+                            style="color:#ef4444;font-size:0.78rem;margin:0;">{{ bf.criterion.errors }}</p>{% endif %}
+                    </div>
+                    <div>{{ bf.value }}{% if bf.value.errors %}<p style="color:#ef4444;font-size:0.78rem;margin:0;">{{
+                            bf.value.errors }}</p>{% endif %}</div>
+                    <div>{{ bf.description }}</div>
+                    <label
+                        style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;color:var(--text-muted,#9ca3af);">
+                        {{ bf.DELETE }} Delete
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+
+            <button type="button" id="add-bias-row" class="btn btn-secondary btn-sm" style="margin:0.5rem 0 1rem;">
+                + Add Criterion
+            </button>
 
             <div style="display:flex; gap:0.75rem; margin-top:0.75rem;">
                 <button type="submit" class="btn btn-primary">{{ action }} Job Posting</button>
@@ -73,4 +125,56 @@
         </form>
     </div>
 </div>
+
+<script>
+    (function () {
+        var container = document.getElementById('bias-formset-container');
+        var addBtn = document.getElementById('add-bias-row');
+        var totalForms = document.getElementById('id_bias_criteria-TOTAL_FORMS');
+        var warning = document.getElementById('bias-gender-warn');
+
+        if (!addBtn || !container || !totalForms) return;
+
+        addBtn.addEventListener('click', function () {
+            var rows = container.querySelectorAll('.bias-row');
+            var lastRow = rows[rows.length - 1];
+            var newRow = lastRow.cloneNode(true);
+            var idx = parseInt(totalForms.value, 10);
+
+            // Re-index all name/id attributes
+            ['name', 'id', 'for'].forEach(function (attr) {
+                newRow.querySelectorAll('[' + attr + ']').forEach(function (el) {
+                    el.setAttribute(attr, el.getAttribute(attr).replace(/bias_criteria-\d+-/, 'bias_criteria-' + idx + '-'));
+                });
+            });
+
+            // Clear values
+            newRow.querySelectorAll('input[type=text], input[type=number]').forEach(function (el) { el.value = ''; });
+            newRow.querySelectorAll('select').forEach(function (el) { el.selectedIndex = 0; });
+            newRow.querySelectorAll('input[type=checkbox]').forEach(function (el) { el.checked = false; });
+            newRow.querySelectorAll('input[type=hidden]').forEach(function (el) {
+                if (el.name.endsWith('-id')) el.value = '';
+            });
+            // Clear any inline error messages
+            newRow.querySelectorAll('p').forEach(function (p) { p.remove(); });
+
+            container.appendChild(newRow);
+            totalForms.value = idx + 1;
+            bindGenderWarn();
+        });
+
+        function bindGenderWarn() {
+            document.querySelectorAll('.bias-criterion-select').forEach(function (sel) {
+                sel.addEventListener('change', checkGender);
+            });
+        }
+        function checkGender() {
+            var hasGender = Array.from(document.querySelectorAll('.bias-criterion-select')).some(function (s) {
+                return s.value === 'gender';
+            });
+            if (warning) warning.style.display = hasGender ? 'block' : 'none';
+        }
+        bindGenderWarn();
+    })();
+</script>
 {% endblock %}

@@ -12,13 +12,16 @@ from .forms import (
     HRProfileForm, CandidateProfileForm,
     JobPostingForm, JobApplicationForm,
     ApplicationStatusForm, JobSearchForm,
+    JobBiasCriteriaFormSet,
 )
 from .models import (
     CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
     ResumeParseResult, ApplicationMatchScore,
+    JobBiasCriteria, ApplicationBiasResult,
 )
 from .utils.resume_parser import parse_resume
 from .utils.match_scorer import compute_match_score, score_skills_overlap
+from .utils.bias_agent import run_bias_agent
 
 
 # ── Helpers / Mixins ─────────────────────────────────────────────────────────
@@ -138,15 +141,21 @@ def hr_profile_edit(request):
 def job_create(request):
     if request.method == 'POST':
         form = JobPostingForm(request.POST)
-        if form.is_valid():
+        bias_formset = JobBiasCriteriaFormSet(request.POST)
+        if form.is_valid() and bias_formset.is_valid():
             job = form.save(commit=False)
             job.posted_by = request.user
             job.save()
+            bias_formset.instance = job
+            bias_formset.save()
             messages.success(request, f"Job '{job.title}' posted successfully!")
             return redirect('hr_dashboard')
     else:
         form = JobPostingForm()
-    return render(request, 'recruitment/job_form.html', {'form': form, 'action': 'Create'})
+        bias_formset = JobBiasCriteriaFormSet()
+    return render(request, 'recruitment/job_form.html', {
+        'form': form, 'bias_formset': bias_formset, 'action': 'Create'
+    })
 
 
 @hr_required
@@ -154,13 +163,18 @@ def job_edit(request, pk):
     job = get_object_or_404(JobPosting, pk=pk, posted_by=request.user)
     if request.method == 'POST':
         form = JobPostingForm(request.POST, instance=job)
-        if form.is_valid():
+        bias_formset = JobBiasCriteriaFormSet(request.POST, instance=job)
+        if form.is_valid() and bias_formset.is_valid():
             form.save()
+            bias_formset.save()
             messages.success(request, "Job updated successfully!")
             return redirect('hr_dashboard')
     else:
         form = JobPostingForm(instance=job)
-    return render(request, 'recruitment/job_form.html', {'form': form, 'action': 'Edit', 'job': job})
+        bias_formset = JobBiasCriteriaFormSet(instance=job)
+    return render(request, 'recruitment/job_form.html', {
+        'form': form, 'bias_formset': bias_formset, 'action': 'Edit', 'job': job
+    })
 
 
 @hr_required
@@ -178,8 +192,21 @@ def applicant_list(request, pk):
     job = get_object_or_404(JobPosting, pk=pk, posted_by=request.user)
     applications = job.applications.select_related(
         'candidate', 'candidate__candidate_profile'
-    ).prefetch_related('match_score').all()
-    return render(request, 'recruitment/applicant_list.html', {'job': job, 'applications': applications})
+    ).prefetch_related('match_score', 'bias_results__criterion').all()
+
+    # Build a nested lookup: {app.pk: {criterion.pk: result}} for template use
+    bias_criteria = list(job.bias_criteria.all())
+    bias_results_map = {}
+    for app in applications:
+        results_by_criterion = {r.criterion_id: r for r in app.bias_results.all()}
+        bias_results_map[app.pk] = results_by_criterion
+
+    return render(request, 'recruitment/applicant_list.html', {
+        'job': job,
+        'applications': applications,
+        'bias_criteria': bias_criteria,
+        'bias_results_map': bias_results_map,
+    })
 
 
 @hr_required
@@ -327,6 +354,12 @@ def job_apply(request, pk):
                 pass  # Scoring is best-effort; never block an application
             # ────────────────────────────────────────────────────────────
 
+            # Phase 3 Bias Agent — auto-evaluate against HR criteria
+            try:
+                run_bias_agent(application)
+            except Exception:
+                pass  # Best-effort; never block an application
+
             messages.success(request, f"Applied to '{job.title}' successfully! Good luck!")
             return redirect('my_applications')
     else:
@@ -438,3 +471,38 @@ def parse_resume_view(request):
         messages.error(request, f"Could not parse resume: {e}")
 
     return redirect('candidate_dashboard')
+
+
+# ── Phase 3: Bias Agent ───────────────────────────────────────────────────────
+
+@hr_required
+def run_bias_check_view(request, pk):
+    """
+    HR-triggered re-evaluation of all applicants for a job against its bias criteria.
+    POST only. Redirects back to applicant_list.
+    """
+    if request.method != 'POST':
+        return redirect('applicant_list', pk=pk)
+
+    job = get_object_or_404(JobPosting, pk=pk, posted_by=request.user)
+    criteria_count = job.bias_criteria.count()
+
+    if criteria_count == 0:
+        messages.warning(request, "No bias criteria defined for this job yet. Add criteria when editing the job.")
+        return redirect('applicant_list', pk=pk)
+
+    applications = job.applications.all()
+    evaluated = 0
+    for application in applications:
+        try:
+            run_bias_agent(application)
+            evaluated += 1
+        except Exception:
+            pass
+
+    messages.success(
+        request,
+        f"Bias check completed: evaluated {evaluated} applicant(s) against {criteria_count} criterion/criteria."
+    )
+    return redirect('applicant_list', pk=pk)
+

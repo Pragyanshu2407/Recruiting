@@ -41,6 +41,10 @@ class CandidateProfile(models.Model):
     linkedin_url = models.URLField(blank=True)
     github_url = models.URLField(blank=True)
     portfolio_url = models.URLField(blank=True)
+    gender = models.CharField(
+        max_length=20, blank=True,
+        help_text="Optional — used for diversity-aware hiring criteria"
+    )
 
     def skills_list(self):
         """Returns skills as a Python list."""
@@ -204,3 +208,75 @@ class ApplicationMatchScore(models.Model):
 
     def __str__(self):
         return f"{self.application} — {self.score}%"
+
+
+# ── Phase 3: Custom Bias Criteria ─────────────────────────────────────────────
+
+class JobBiasCriteria(models.Model):
+    """HR-defined hiring-preference rule attached to a job posting."""
+
+    CRITERION_EXPERIENCE = 'experience_min'
+    CRITERION_COLLEGE    = 'college_tier'
+    CRITERION_GENDER     = 'gender'
+    CRITERION_CUSTOM     = 'custom'
+
+    CRITERION_CHOICES = [
+        (CRITERION_EXPERIENCE, 'Minimum Experience (years)'),
+        (CRITERION_COLLEGE,    'College Tier (Tier 1 / Tier 2)'),
+        (CRITERION_GENDER,     'Gender Preference'),
+        (CRITERION_CUSTOM,     'Custom Keyword Rule'),
+    ]
+
+    # Sensitivity flag — used by the future Bias Detection module
+    SENSITIVITY = {
+        CRITERION_EXPERIENCE: 'low',
+        CRITERION_COLLEGE:    'medium',
+        CRITERION_GENDER:     'high',
+        CRITERION_CUSTOM:     'medium',
+    }
+
+    job = models.ForeignKey(
+        JobPosting, on_delete=models.CASCADE, related_name='bias_criteria'
+    )
+    criterion   = models.CharField(max_length=20, choices=CRITERION_CHOICES)
+    value       = models.CharField(
+        max_length=200,
+        help_text="e.g. '5' for ≥5 years, 'Tier 1', 'Female', or a keyword phrase"
+    )
+    description = models.CharField(
+        max_length=300, blank=True,
+        help_text="Optional human-readable label shown on the HR dashboard"
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def sensitivity(self) -> str:
+        return self.SENSITIVITY.get(self.criterion, 'medium')
+
+    @property
+    def display_label(self) -> str:
+        return self.description or f"{self.get_criterion_display()}: {self.value}"
+
+    def __str__(self):
+        return f"[{self.get_criterion_display()}] {self.value} — {self.job.title}"
+
+
+class ApplicationBiasResult(models.Model):
+    """Stores the Bias Agent's evaluation result for one criterion on one application."""
+    application  = models.ForeignKey(
+        JobApplication, on_delete=models.CASCADE, related_name='bias_results'
+    )
+    criterion    = models.ForeignKey(
+        JobBiasCriteria, on_delete=models.CASCADE, related_name='results'
+    )
+    passed       = models.BooleanField()
+    detail       = models.CharField(max_length=300, blank=True)  # e.g. "3 yrs < required 5 yrs"
+    evaluated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('application', 'criterion')
+
+    def __str__(self):
+        status = "✅" if self.passed else "❌"
+        return f"{status} {self.criterion} — {self.application}"
+

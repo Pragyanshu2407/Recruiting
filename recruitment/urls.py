@@ -17,6 +17,7 @@ urlpatterns = [
     path('hr/jobs/<int:pk>/edit/', views.job_edit, name='job_edit'),
     path('hr/jobs/<int:pk>/delete/', views.job_delete, name='job_delete'),
     path('hr/jobs/<int:pk>/applicants/', views.applicant_list, name='applicant_list'),
+    path('hr/jobs/<int:pk>/bias-check/', views.run_bias_check_view, name='run_bias_check'),
     path('hr/applications/<int:pk>/status/', views.application_update_status, name='application_update_status'),
 
     # Candidate

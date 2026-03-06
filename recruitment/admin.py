@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import (
     CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
     ResumeParseResult, ApplicationMatchScore,
+    JobBiasCriteria, ApplicationBiasResult,
 )
 
 
@@ -51,3 +52,18 @@ class ApplicationMatchScoreAdmin(admin.ModelAdmin):
     list_filter = ('score',)
     readonly_fields = ('computed_at',)
 
+
+@admin.register(JobBiasCriteria)
+class JobBiasCriteriaAdmin(admin.ModelAdmin):
+    list_display  = ('job', 'criterion', 'value', 'description', 'sensitivity', 'created_at')
+    list_filter   = ('criterion',)
+    search_fields = ('job__title', 'value', 'description')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(ApplicationBiasResult)
+class ApplicationBiasResultAdmin(admin.ModelAdmin):
+    list_display  = ('application', 'criterion', 'passed', 'detail', 'evaluated_at')
+    list_filter   = ('passed', 'criterion__criterion')
+    search_fields = ('application__candidate__username', 'criterion__value')
+    readonly_fields = ('evaluated_at',)

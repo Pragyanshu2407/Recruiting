@@ -1,6 +1,10 @@
 from django import forms
+from django.forms import inlineformset_factory
 from django.contrib.auth.forms import UserCreationForm
-from .models import CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication
+from .models import (
+    CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
+    JobBiasCriteria,
+)
 
 
 # ── Auth Forms ──────────────────────────────────────────────────────────────
@@ -79,16 +83,18 @@ class CandidateProfileForm(forms.ModelForm):
     class Meta:
         model = CandidateProfile
         fields = [
-            'bio', 'skills', 'experience_years', 'education',
+            'bio', 'skills', 'experience_years', 'education', 'gender',
             'resume', 'linkedin_url', 'github_url', 'portfolio_url',
         ]
         widgets = {
             'bio': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Tell us about yourself...'}),
             'skills': forms.TextInput(attrs={'placeholder': 'e.g. Python, Django, React, SQL'}),
             'education': forms.TextInput(attrs={'placeholder': 'e.g. B.Tech CSE, IIT Delhi'}),
+            'gender': forms.TextInput(attrs={'placeholder': 'e.g. Male / Female / Non-binary / Prefer not to say'}),
         }
         labels = {
             'skills': 'Skills (comma-separated)',
+            'gender': 'Gender (optional)',
         }
 
     def __init__(self, *args, **kwargs):
@@ -180,3 +186,39 @@ class JobSearchForm(forms.Form):
         widget=forms.TextInput(attrs={'placeholder': 'e.g. Python, React'}),
         label='Filter by Skills',
     )
+
+
+# ── Bias Criteria Forms (HR) ──────────────────────────────────────────
+
+class JobBiasCriteriaForm(forms.ModelForm):
+    """Single row in the bias criteria inline formset."""
+    class Meta:
+        model = JobBiasCriteria
+        fields = ['criterion', 'value', 'description']
+        widgets = {
+            'criterion': forms.Select(attrs={'class': 'bias-criterion-select'}),
+            'value': forms.TextInput(attrs={
+                'placeholder': 'e.g. 5  /  Tier 1  /  Female  /  keyword',
+                'class': 'bias-value-input',
+            }),
+            'description': forms.TextInput(attrs={
+                'placeholder': 'Optional label (shown to HR on applicant list)',
+                'class': 'bias-desc-input',
+            }),
+        }
+        labels = {
+            'criterion':   'Rule Type',
+            'value':       'Value',
+            'description': 'Label (optional)',
+        }
+
+
+# Inline formset: up to 5 criteria per job posting
+JobBiasCriteriaFormSet = inlineformset_factory(
+    JobPosting,
+    JobBiasCriteria,
+    form=JobBiasCriteriaForm,
+    extra=1,          # one empty row to start
+    max_num=5,
+    can_delete=True,
+)

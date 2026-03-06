@@ -2,17 +2,50 @@
 {% block title %}Applicants — {{ job.title }} — FairHire{% endblock %}
 
 {% block content %}
-<a href="{% url 'hr_dashboard' %}"
-    style="color:var(--text-secondary); text-decoration:none; font-size:0.9rem; display:inline-flex; align-items:center; gap:0.3rem; margin-bottom:1.5rem;">←
-    Back to Dashboard</a>
-
 <div class="page-header">
     <div>
-        <h1 class="page-title">Applicants — {{ job.title }}</h1>
-        <p class="page-subtitle">{{ applications.count }} application{{ applications.count|pluralize }} received</p>
+        <h1 class="page-title">Applicants: {{ job.title }}</h1>
+        <p style="color:var(--text-secondary); margin:0;">{{ applications|length }} application{{
+            applications|length|pluralize }}</p>
     </div>
-    <a href="{% url 'job_edit' job.pk %}" class="btn btn-secondary">Edit Job</a>
+    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+        {% if bias_criteria %}
+        <form method="post" action="{% url 'run_bias_check' job.pk %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">🔄 Re-run Bias Check</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'job_edit' job.pk %}" class="btn btn-secondary btn-sm">✏️ Edit Job &amp; Criteria</a>
+        <a href="{% url 'hr_dashboard' %}" class="btn btn-secondary">← Dashboard</a>
+    </div>
 </div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<!-- ── Bias Criteria Summary ── -->
+{% if bias_criteria %}
+<div class="card" style="margin-bottom:1.25rem; padding:0.9rem 1.1rem;">
+    <p
+        style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin-bottom:0.5rem;">
+        ⚡ Active Hiring Criteria</p>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        {% for c in bias_criteria %}
+        <span style="
+            display:inline-flex; align-items:center; gap:0.3rem;
+            background:{% if c.sensitivity == 'high' %}#fee2e2{% elif c.sensitivity == 'medium' %}#fef3c7{% else %}#d1fae5{% endif %};
+            color:{% if c.sensitivity == 'high' %}#991b1b{% elif c.sensitivity == 'medium' %}#92400e{% else %}#065f46{% endif %};
+            border-radius:9999px; padding:0.2rem 0.65rem; font-size:0.78rem; font-weight:600;">
+            {% if c.sensitivity == 'high' %}⚠️{% elif c.sensitivity == 'medium' %}🟡{% else %}✅{% endif %}
+            {{ c.display_label }}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 {% if applications %}
 <div class="table-wrap">
@@ -21,9 +54,13 @@
             <tr>
                 <th>Candidate</th>
                 <th>Fit Score</th>
-                <th>Skills Match</th>
+                <!-- Dynamic bias criterion columns -->
+                {% for c in bias_criteria %}
+                <th title="{{ c.get_criterion_display }}: {{ c.value }}">{{ c.display_label }}</th>
+                {% endfor %}
+                <th>Skills</th>
                 <th>Experience</th>
-                <th>Applied On</th>
+                <th>Applied</th>
                 <th>Status</th>
                 <th>Resume</th>
                 <th>Actions</th>
@@ -32,32 +69,53 @@
         <tbody>
             {% for app in applications %}
             <tr>
+                <!-- Candidate -->
                 <td>
                     <div style="font-weight:600;">{{ app.candidate.get_full_name|default:app.candidate.username }}</div>
                     <div style="font-size:0.82rem; color:var(--text-muted);">{{ app.candidate.email }}</div>
-                    {% if app.cover_letter %}
-                    <div style="font-size:0.78rem; color:var(--primary); margin-top:3px;">Has cover letter</div>
-                    {% endif %}
+                    {% if app.cover_letter %}<div style="font-size:0.78rem; color:var(--primary); margin-top:3px;">Has
+                        cover letter</div>{% endif %}
                 </td>
+
+                <!-- Fit Score -->
                 <td>
-                    {% if app.match_score %}
-                    {% with s=app.match_score %}
-                    <div style="display:inline-flex; flex-direction:column; align-items:center; gap:0.2rem;">
-                        <span style="
-                            display:inline-block;
-                            background:{% if s.score >= 70 %}#10b981{% elif s.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};
-                            color:#fff;
-                            font-weight:700;
-                            font-size:0.85rem;
-                            border-radius:9999px;
-                            padding:0.15rem 0.65rem;
-                            min-width:46px;
-                            text-align:center;">{{ s.score }}%</span>
-                        <span style="font-size:0.72rem; color:var(--text-muted);">{{ s.score_label }}</span>
+                    {% if app.match_score %}{% with s=app.match_score %}
+                    <div style="display:inline-flex; flex-direction:column; align-items:center; gap:0.15rem;">
+                        <span
+                            style="display:inline-block;background:{% if s.score >= 70 %}#10b981{% elif s.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};color:#fff;font-weight:700;font-size:0.85rem;border-radius:9999px;padding:0.1rem 0.6rem;min-width:42px;text-align:center;">{{
+                            s.score }}%</span>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">{{ s.score_label }}</span>
                     </div>
+                    {% endwith %}{% else %}—{% endif %}
+                </td>
+
+                <!-- Bias criterion columns -->
+                {% for c in bias_criteria %}
+                {% with cid=c.pk %}
+                <td>
+                    {% if bias_results_map %}
+                    {% with app_results=bias_results_map|dictsort:"0" %}
+                    {# Template-level lookup: iterate to find matching app.pk #}
+                    {% for apk, results in bias_results_map.items %}
+                    {% if apk == app.pk %}
+                    {% for rid, result in results.items %}
+                    {% if rid == cid %}
+                    <span title="{{ result.detail }}" style="cursor:help;">
+                        {% if result.passed %}✅{% else %}❌{% endif %}
+                    </span>
+                    <div style="font-size:0.7rem; color:var(--text-muted); max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                        title="{{ result.detail }}">{{ result.detail }}</div>
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    {% endfor %}
                     {% endwith %}
                     {% else %}—{% endif %}
                 </td>
+                {% endwith %}
+                {% endfor %}
+
+                <!-- Skills -->
                 <td>
                     {% if app.candidate.candidate_profile.skills %}
                     <div class="skill-tags">
@@ -71,14 +129,22 @@
                     </div>
                     {% else %}—{% endif %}
                 </td>
+
+                <!-- Experience -->
                 <td style="color:var(--text-secondary);">
                     {% if app.candidate.candidate_profile.experience_years %}
                     {{ app.candidate.candidate_profile.experience_years }} yr{{
                     app.candidate.candidate_profile.experience_years|pluralize }}
                     {% else %}—{% endif %}
                 </td>
+
+                <!-- Applied On -->
                 <td style="color:var(--text-muted); font-size:0.88rem;">{{ app.applied_at|date:"M d, Y" }}</td>
+
+                <!-- Status -->
                 <td><span class="badge badge-{{ app.status }}">{{ app.get_status_display }}</span></td>
+
+                <!-- Resume -->
                 <td>
                     {% if app.resume_snapshot %}
                     <a href="{{ app.resume_snapshot.url }}" target="_blank" class="btn btn-secondary btn-sm">📄
@@ -88,6 +154,8 @@
                         class="btn btn-secondary btn-sm">📄 Profile</a>
                     {% else %}—{% endif %}
                 </td>
+
+                <!-- Actions -->
                 <td><a href="{% url 'application_update_status' app.pk %}" class="btn btn-primary btn-sm">Update</a>
                 </td>
             </tr>
@@ -99,8 +167,9 @@
 {% else %}
 <div class="empty-state card">
     <div style="font-size:3rem; margin-bottom:1rem;">📭</div>
-    <h3>No applications yet</h3>
-    <p>Share your job posting to attract candidates.</p>
+    <h2>No applications yet</h2>
+    <p>Share the job listing to start receiving applications.</p>
+    <a href="{% url 'job_detail' job.pk %}" class="btn btn-primary">View Job Listing →</a>
 </div>
 {% endif %}
 {% endblock %}
