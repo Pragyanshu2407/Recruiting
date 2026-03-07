@@ -175,3 +175,53 @@ Value formats:
 **Messaging (basic)**
 - Model: Message (application, sender, text, created_at)
 - Thread at /messages/<application_id>/ with simple send form
+
+---
+
+## Phase 5: Calendar Integration & Reminders
+
+**Calendar**
+- .ics download endpoint for interview slots: `/slots/<slot_id>/ics/` (secure for HR owner and candidate).
+- Quick-add buttons:
+  - Google Calendar link prefilled with start/end/summary.
+  - Outlook web compose link with start/end/subject.
+- Shown on both HR and Candidate dashboards in “Upcoming Interviews”.
+
+**Reminders**
+- 24‑hour reminders for booked interviews:
+  - On dashboard load, creates a one-time in‑app notification if an interview starts in the next 24h (idempotent by title+link).
+- Header bell shows unread notifications count via a context processor.
+
+**Files**
+- Views: calendar ICS and reminder logic in `recruitment/views.py`
+- Context processor: `recruitment/context_processors.py` (+ settings template config)
+- Templates updated: HR and Candidate dashboards, base header bell badge.
+
+---
+
+## Phase 6: Reporting & Export
+
+**Objectives**
+- Give HR a consolidated view of the hiring funnel per job.
+- Enable one-click CSV export of applicants for offline analysis.
+
+**Features**
+- HR Analytics page at `/hr/analytics/`:
+  - Per‑job metrics: total, applied, shortlisted, interview, hired, rejected, withdrawn.
+  - Conversion rates: shortlist rate, hire rate.
+  - Average fit score per job (from `ApplicationMatchScore`).
+- CSV Export on Applicants page:
+  - Button “Export CSV” downloads `applicants_job_<job_id>.csv`.
+  - Columns: Candidate Name, Email, Status, Applied At, Match Score, Experience Years, Skills (merged profile+parsed, deduped), Bias Passed, Bias Failed.
+
+**URLs/Views**
+- `/hr/analytics/` → `hr_analytics`
+- `/hr/jobs/<id>/export.csv` → `export_applicants_csv`
+
+**Templates**
+- `recruitment/templates/recruitment/hr_analytics.html`
+- Applicant list header now shows “Export CSV” and “Analytics” shortcuts.
+
+**Notes**
+- Aggregations use `annotate` with conditional `Count` filters; average scores via a single aggregate pass over `ApplicationMatchScore`.
+- Exports are restricted to the job’s owning HR via `hr_required` and owner checks.

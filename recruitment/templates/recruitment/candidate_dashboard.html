@@ -125,10 +125,14 @@
                     <td>{{ iv.end_time|date:"M d, Y H:i" }}</td>
                     <td>
                         <a class="btn btn-secondary btn-sm" href="{% url 'slot_ics' iv.pk %}">Download .ics</a>
-                        {% with st=iv.start_time|date:"Ymd\\THis\\Z" et=iv.end_time|date:"Ymd\\THis\\Z" %}
+                        {% with st=iv.start_time|date:"Ymd\\THis\\Z" et=iv.end_time|date:"Ymd\\THis\\Z" subj='Interview: '|add:iv.application.job.title details='See details in FairHire' %}
                         <a class="btn btn-secondary btn-sm" target="_blank"
-                           href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ ('Interview: ' |add:iv.application.job.title)|urlencode }}&dates={{ st }}%2F{{ et }}&details={{ ('See details in FairHire')|urlencode }}">
+                           href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ subj|urlencode }}&dates={{ st }}%2F{{ et }}&details={{ details|urlencode }}">
                            Google
+                        </a>
+                        <a class="btn btn-secondary btn-sm" target="_blank"
+                           href="https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&startdt={{ st }}&enddt={{ et }}&subject={{ subj|urlencode }}">
+                           Outlook
                         </a>
                         {% endwith %}
                     </td>

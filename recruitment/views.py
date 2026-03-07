@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django.views.generic import CreateView
 from django.contrib.auth.views import LoginView
-from django.db.models import Q
+from django.db.models import Q, Count, Avg
 from django.core.mail import send_mail
 from django.utils import timezone
 from django.http import HttpResponse
@@ -117,19 +117,87 @@ def hr_dashboard(request):
         job__posted_by=request.user, status=JobApplication.STATUS_SHORTLISTED
     ).count()
 
+    upcoming = InterviewSlot.objects.filter(
+        application__job__posted_by=request.user,
+        status=InterviewSlot.STATUS_BOOKED,
+        start_time__gte=timezone.now()
+    ).select_related('application', 'application__candidate', 'application__job')[:10]
+
+    soon = InterviewSlot.objects.filter(
+        application__job__posted_by=request.user,
+        status=InterviewSlot.STATUS_BOOKED,
+        start_time__range=(timezone.now(), timezone.now() + timezone.timedelta(hours=24))
+    )
+    for s in soon:
+        t = f"Interview Tomorrow: {s.application.job.title}"
+        l = f"/slots/{s.pk}/ics/"
+        if not Notification.objects.filter(user=request.user, title=t, link=l).exists():
+            Notification.objects.create(user=request.user, title=t, body="Reminder set for next 24h", link=l)
+
     context = {
         'job_postings': job_postings,
         'total_applications': total_applications,
         'open_jobs': open_jobs,
         'shortlisted': shortlisted,
-        'upcoming_interviews': InterviewSlot.objects.filter(
-            application__job__posted_by=request.user,
-            status=InterviewSlot.STATUS_BOOKED,
-            start_time__gte=timezone.now()
-        ).select_related('application', 'application__candidate', 'application__job')[:10],
+        'upcoming_interviews': upcoming,
         'notifications': Notification.objects.filter(user=request.user, unread=True)[:5],
     }
     return render(request, 'recruitment/hr_dashboard.html', context)
+
+
+@hr_required
+def hr_analytics(request):
+    jobs = JobPosting.objects.filter(posted_by=request.user).annotate(
+        total_apps=Count('applications'),
+        apps_applied=Count('applications', filter=Q(applications__status=JobApplication.STATUS_APPLIED)),
+        apps_shortlisted=Count('applications', filter=Q(applications__status=JobApplication.STATUS_SHORTLISTED)),
+        apps_interview=Count('applications', filter=Q(applications__status=JobApplication.STATUS_INTERVIEW)),
+        apps_hired=Count('applications', filter=Q(applications__status=JobApplication.STATUS_HIRED)),
+        apps_rejected=Count('applications', filter=Q(applications__status=JobApplication.STATUS_REJECTED)),
+        apps_withdrawn=Count('applications', filter=Q(applications__status=JobApplication.STATUS_WITHDRAWN)),
+    )
+    # Average match score per job (via subquery join)
+    avg_scores = (
+        ApplicationMatchScore.objects
+        .values('application__job_id')
+        .annotate(avg=Avg('score'))
+    )
+    avg_map = {row['application__job_id']: round(row['avg'] or 0) for row in avg_scores}
+
+    rows = []
+    totals = {
+        'total': 0, 'applied': 0, 'shortlisted': 0, 'interview': 0, 'hired': 0, 'rejected': 0, 'withdrawn': 0
+    }
+    for j in jobs:
+        total = j.total_apps or 0
+        applied = j.apps_applied or 0
+        shortlisted = j.apps_shortlisted or 0
+        interview = j.apps_interview or 0
+        hired = j.apps_hired or 0
+        rejected = j.apps_rejected or 0
+        withdrawn = j.apps_withdrawn or 0
+        totals['total'] += total
+        totals['applied'] += applied
+        totals['shortlisted'] += shortlisted
+        totals['interview'] += interview
+        totals['hired'] += hired
+        totals['rejected'] += rejected
+        totals['withdrawn'] += withdrawn
+        rows.append({
+            'job': j,
+            'total': total,
+            'applied': applied,
+            'shortlisted': shortlisted,
+            'interview': interview,
+            'hired': hired,
+            'rejected': rejected,
+            'withdrawn': withdrawn,
+            'avg_score': avg_map.get(j.id, 0),
+            'shortlist_rate': round((shortlisted / total) * 100) if total else 0,
+            'hire_rate': round((hired / total) * 100) if total else 0,
+        })
+    context = {'rows': rows, 'totals': totals}
+    return render(request, 'recruitment/hr_analytics.html', context)
 
 
 @hr_required
@@ -299,6 +367,49 @@ def applicant_list(request, pk):
         'applications_plural': '' if applications.count() == 1 else 's',
     })
 
+
+@hr_required
+def export_applicants_csv(request, pk):
+    import csv
+    job = get_object_or_404(JobPosting, pk=pk, posted_by=request.user)
+    applications = job.applications.select_related('candidate', 'candidate__candidate_profile').prefetch_related('match_score', 'bias_results')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="applicants_job_{job.id}.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        'Candidate Name', 'Email', 'Status', 'Applied At',
+        'Match Score', 'Experience Years', 'Skills', 'Bias Passed', 'Bias Failed'
+    ])
+    for app in applications:
+        name = app.candidate.get_full_name() or app.candidate.username
+        email = app.candidate.email
+        status = app.get_status_display()
+        applied = app.applied_at.strftime("%Y-%m-%d %H:%M")
+        score = getattr(app.match_score, 'score', '')
+        exp = getattr(getattr(app.candidate, 'candidate_profile', None), 'experience_years', '')
+        # Merge skills from profile and parsed
+        skills = []
+        try:
+            skills.extend(app.candidate.candidate_profile.skills_list())
+        except Exception:
+            pass
+        try:
+            skills.extend(app.candidate.candidate_profile.parse_result.parsed_skills_list())
+        except Exception:
+            pass
+        seen = set()
+        ordered = []
+        for s in skills:
+            k = s.strip().lower()
+            if k and k not in seen:
+                seen.add(k)
+                ordered.append(s.strip())
+        skills_str = ', '.join(ordered)
+        # Bias summary
+        passed = app.bias_results.filter(passed=True).count()
+        failed = app.bias_results.filter(passed=False).count()
+        writer.writerow([name, email, status, applied, score, exp, skills_str, passed, failed])
+    return response
 
 @hr_required
 def application_update_status(request, pk):
@@ -514,6 +625,23 @@ def candidate_dashboard(request):
     # Phase 3: resume parse result (None if not yet parsed)
     parse_result = getattr(profile, 'parse_result', None)
 
+    upcoming = InterviewSlot.objects.filter(
+        application__candidate=request.user,
+        status=InterviewSlot.STATUS_BOOKED,
+        start_time__gte=timezone.now()
+    ).select_related('application', 'application__job')[:10]
+
+    soon = InterviewSlot.objects.filter(
+        application__candidate=request.user,
+        status=InterviewSlot.STATUS_BOOKED,
+        start_time__range=(timezone.now(), timezone.now() + timezone.timedelta(hours=24))
+    )
+    for s in soon:
+        t = f"Interview Tomorrow: {s.application.job.title}"
+        l = f"/slots/{s.pk}/ics/"
+        if not Notification.objects.filter(user=request.user, title=t, link=l).exists():
+            Notification.objects.create(user=request.user, title=t, body="Reminder set for next 24h", link=l)
+
     context = {
         'applications': applications,
         'status_counts': status_counts,
@@ -521,11 +649,7 @@ def candidate_dashboard(request):
         'profile_complete': profile_complete,
         'open_jobs_count': JobPosting.objects.filter(status=JobPosting.STATUS_OPEN).count(),
         'parse_result': parse_result,
-        'upcoming_interviews': InterviewSlot.objects.filter(
-            application__candidate=request.user,
-            status=InterviewSlot.STATUS_BOOKED,
-            start_time__gte=timezone.now()
-        ).select_related('application', 'application__job')[:10],
+        'upcoming_interviews': upcoming,
         'notifications': Notification.objects.filter(user=request.user, unread=True)[:5],
     }
     return render(request, 'recruitment/candidate_dashboard.html', context)

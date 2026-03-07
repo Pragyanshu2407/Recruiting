@@ -74,6 +74,8 @@
         }
         nav a:hover { background: var(--surface-2); color: var(--text-primary); }
         .nav-right { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+        .notif-pill { position: relative; display: inline-flex; align-items: center; }
+        .notif-dot { position: absolute; top: -6px; right: -6px; background: #ef4444; color: #fff; border-radius: 9999px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
 
         /* ── Buttons ── */
         .btn {
@@ -245,6 +247,7 @@
             {% if user.is_authenticated %}
                 {% if user.is_hr %}
                     <a href="{% url 'hr_dashboard' %}">Dashboard</a>
+                    <a href="{% url 'hr_analytics' %}">Analytics</a>
                     <a href="{% url 'job_create' %}">+ Post Job</a>
                     <a href="{% url 'hr_profile' %}">Profile</a>
                 {% elif user.is_candidate %}
@@ -256,6 +259,11 @@
         </nav>
         <div class="nav-right">
             {% if user.is_authenticated %}
+                <a href="{% url 'notifications' %}" class="notif-pill btn btn-secondary btn-sm" title="Notifications">🔔
+                    {% if notifications_unread and notifications_unread > 0 %}
+                    <span class="notif-dot">{{ notifications_unread }}</span>
+                    {% endif %}
+                </a>
                 <span style="font-size:0.88rem; color:var(--text-secondary);">👋 {{ user.username }}</span>
                 <form action="{% url 'logout' %}" method="post" style="display:inline;">
                     {% csrf_token %}

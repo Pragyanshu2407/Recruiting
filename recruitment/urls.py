@@ -18,6 +18,8 @@ urlpatterns = [
     path('hr/jobs/<int:pk>/delete/', views.job_delete, name='job_delete'),
     path('hr/jobs/<int:pk>/applicants/', views.applicant_list, name='applicant_list'),
     path('hr/jobs/<int:pk>/bias-check/', views.run_bias_check_view, name='run_bias_check'),
+    path('hr/jobs/<int:pk>/export.csv', views.export_applicants_csv, name='export_applicants_csv'),
+    path('hr/analytics/', views.hr_analytics, name='hr_analytics'),
     path('hr/applications/<int:pk>/status/', views.application_update_status, name='application_update_status'),
     path('hr/applications/<int:pk>/interview/propose/', views.propose_interview, name='propose_interview'),
 
