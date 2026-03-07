@@ -149,3 +149,29 @@ Value formats:
 
 **Notes:**
 - All AI features fail gracefully if dependencies or data are missing — they never block user flows.
+
+---
+
+## Phase 4: Communication & Workflow
+
+**Email Notifications**
+- Console backend configured for development; emails print to server logs.
+- Triggers:
+  - On application submission (HR notified; candidate ack)
+  - On application status change (candidate notified)
+
+**In‑App Notifications**
+- Model: Notification (user, title, body, link, unread, created_at)
+- List view at /notifications/ and badges shown in dashboards via context.
+
+**Interview Scheduler**
+- HR can propose up to 3 time slots per application:
+  - /hr/applications/<id>/interview/propose/
+- Candidate chooses a slot:
+  - /candidate/applications/<id>/interview/
+- Booking marks the chosen slot as booked and cancels the rest; both parties are notified (in‑app + email).
+- Model: InterviewSlot (application, start_time, end_time, status, proposed_by, booked_by)
+
+**Messaging (basic)**
+- Model: Message (application, sender, text, created_at)
+- Thread at /messages/<application_id>/ with simple send form

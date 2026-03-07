@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class CustomUser(AbstractUser):
@@ -280,3 +281,54 @@ class ApplicationBiasResult(models.Model):
         status = "✅" if self.passed else "❌"
         return f"{status} {self.criterion} — {self.application}"
 
+
+# ── Phase 4: Communication & Workflow ─────────────────────────────────────────
+
+class Notification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    link = models.CharField(max_length=300, blank=True)
+    unread = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user} • {self.title}"
+
+
+class InterviewSlot(models.Model):
+    STATUS_PROPOSED = 'proposed'
+    STATUS_BOOKED = 'booked'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (STATUS_PROPOSED, 'Proposed'),
+        (STATUS_BOOKED, 'Booked'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    application = models.ForeignKey('JobApplication', on_delete=models.CASCADE, related_name='interview_slots')
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PROPOSED)
+    proposed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposed_slots')
+    booked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='booked_slots')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['start_time']
+
+    def is_upcoming(self):
+        return self.start_time >= timezone.now()
+
+
+class Message(models.Model):
+    application = models.ForeignKey('JobApplication', on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='messages_sent')
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']

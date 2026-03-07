@@ -40,6 +40,34 @@
 </div>
 {% endif %}
 
+<!-- Upcoming Interviews -->
+{% if upcoming_interviews %}
+<h2 style="font-size:1.1rem; font-weight:600; margin:1.25rem 0 0.75rem;">Upcoming Interviews</h2>
+<div class="table-wrap" style="margin-bottom:1rem;">
+    <table>
+        <thead><tr><th>Candidate</th><th>Job</th><th>Start</th><th>End</th><th>Calendar</th></tr></thead>
+        <tbody>
+        {% for iv in upcoming_interviews %}
+            <tr>
+                <td>{{ iv.application.candidate.username }}</td>
+                <td>{{ iv.application.job.title }}</td>
+                <td>{{ iv.start_time|date:"M d, Y H:i" }}</td>
+                <td>{{ iv.end_time|date:"M d, Y H:i" }}</td>
+                <td>
+                    <a class="btn btn-secondary btn-sm" href="{% url 'slot_ics' iv.pk %}">Download .ics</a>
+                    {% with st=iv.start_time|date:"Ymd\\THis\\Z" et=iv.end_time|date:"Ymd\\THis\\Z" %}
+                    <a class="btn btn-secondary btn-sm" target="_blank"
+                       href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ ('Interview: ' |add:iv.application.job.title)|urlencode }}&dates={{ st }}%2F{{ et }}&details={{ ('See details in FairHire')|urlencode }}">
+                       Google
+                    </a>
+                    {% endwith %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
 <!-- Job Listings Table -->
 <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Your Job Postings</h2>
 

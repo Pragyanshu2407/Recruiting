@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Choose Interview Slot — FairHire{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Choose Interview Slot</h1>
+    <p class="page-subtitle">{{ application.job.title }}</p>
+  </div>
+  <a href="{% url 'candidate_dashboard' %}" class="btn btn-secondary">← Dashboard</a>
+</div>
+
+{% if slots %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Start</th><th>End</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+    {% for s in slots %}
+      <tr>
+        <td>{{ s.start_time|date:"M d, Y H:i" }}</td>
+        <td>{{ s.end_time|date:"M d, Y H:i" }}</td>
+        <td>
+          <form action="{% url 'book_interview_slot' s.pk %}" method="post" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm">Book</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+<div class="empty-state card">
+  <div style="font-size:3rem; margin-bottom:1rem;">⏳</div>
+  <h3>No slots available yet</h3>
+  <p>We will notify you when HR proposes interview slots.</p>
+</div>
+{% endif %}
+{% endblock %}

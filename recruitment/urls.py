@@ -19,15 +19,21 @@ urlpatterns = [
     path('hr/jobs/<int:pk>/applicants/', views.applicant_list, name='applicant_list'),
     path('hr/jobs/<int:pk>/bias-check/', views.run_bias_check_view, name='run_bias_check'),
     path('hr/applications/<int:pk>/status/', views.application_update_status, name='application_update_status'),
+    path('hr/applications/<int:pk>/interview/propose/', views.propose_interview, name='propose_interview'),
 
     # Candidate
     path('candidate/dashboard/', views.candidate_dashboard, name='candidate_dashboard'),
     path('candidate/profile/', views.candidate_profile_edit, name='candidate_profile'),
     path('candidate/applications/', views.my_applications, name='my_applications'),
     path('candidate/parse-resume/', views.parse_resume_view, name='parse_resume'),
+    path('candidate/applications/<int:pk>/interview/', views.candidate_interview_select, name='candidate_interview_select'),
+    path('candidate/slots/<int:slot_id>/book/', views.book_interview_slot, name='book_interview_slot'),
+    path('slots/<int:slot_id>/ics/', views.slot_ics, name='slot_ics'),
 
     # Public Job Board
     path('jobs/', views.job_list, name='job_list'),
     path('jobs/<int:pk>/', views.job_detail, name='job_detail'),
     path('jobs/<int:pk>/apply/', views.job_apply, name='job_apply'),
+    path('notifications/', views.notifications_list, name='notifications'),
+    path('messages/<int:pk>/', views.message_thread, name='message_thread'),
 ]

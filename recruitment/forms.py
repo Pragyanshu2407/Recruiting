@@ -3,8 +3,10 @@ from django.forms import inlineformset_factory
 from django.contrib.auth.forms import UserCreationForm
 from .models import (
     CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
-    JobBiasCriteria,
+    JobBiasCriteria, Message,
 )
+from django import forms
+from django.forms import DateTimeInput
 
 
 # ── Auth Forms ──────────────────────────────────────────────────────────────
@@ -222,3 +224,40 @@ JobBiasCriteriaFormSet = inlineformset_factory(
     max_num=5,
     can_delete=True,
 )
+
+
+# ── Phase 4: Communication & Workflow ─────────────────────────────────────────
+
+class InterviewProposeForm(forms.Form):
+    slot1_start = forms.DateTimeField(required=False, widget=DateTimeInput(attrs={'type': 'datetime-local'}))
+    slot1_end = forms.DateTimeField(required=False, widget=DateTimeInput(attrs={'type': 'datetime-local'}))
+    slot2_start = forms.DateTimeField(required=False, widget=DateTimeInput(attrs={'type': 'datetime-local'}))
+    slot2_end = forms.DateTimeField(required=False, widget=DateTimeInput(attrs={'type': 'datetime-local'}))
+    slot3_start = forms.DateTimeField(required=False, widget=DateTimeInput(attrs={'type': 'datetime-local'}))
+    slot3_end = forms.DateTimeField(required=False, widget=DateTimeInput(attrs={'type': 'datetime-local'}))
+
+    def clean(self):
+        cleaned = super().clean()
+        pairs = [
+            (cleaned.get('slot1_start'), cleaned.get('slot1_end')),
+            (cleaned.get('slot2_start'), cleaned.get('slot2_end')),
+            (cleaned.get('slot3_start'), cleaned.get('slot3_end')),
+        ]
+        provided = 0
+        for s, e in pairs:
+            if s or e:
+                provided += 1
+                if not s or not e or s >= e:
+                    raise forms.ValidationError("Each slot must have a start before end.")
+        if provided == 0:
+            raise forms.ValidationError("Provide at least one time slot.")
+        return cleaned
+
+
+class MessageForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = ['text']
+        widgets = {
+            'text': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Type a message…'}),
+        }

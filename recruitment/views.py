@@ -6,18 +6,21 @@ from django.contrib import messages
 from django.views.generic import CreateView
 from django.contrib.auth.views import LoginView
 from django.db.models import Q
+from django.core.mail import send_mail
+from django.utils import timezone
+from django.http import HttpResponse
 
 from .forms import (
     HRSignUpForm, CandidateSignUpForm,
     HRProfileForm, CandidateProfileForm,
     JobPostingForm, JobApplicationForm,
     ApplicationStatusForm, JobSearchForm,
-    JobBiasCriteriaFormSet,
+    JobBiasCriteriaFormSet, InterviewProposeForm, MessageForm,
 )
 from .models import (
     CustomUser, HRProfile, CandidateProfile, JobPosting, JobApplication,
     ResumeParseResult, ApplicationMatchScore,
-    JobBiasCriteria, ApplicationBiasResult,
+    JobBiasCriteria, ApplicationBiasResult, Notification, InterviewSlot, Message,
 )
 from .utils.resume_parser import parse_resume
 from .utils.match_scorer import compute_match_score, score_skills_overlap, analyze_skill_gap
@@ -119,6 +122,12 @@ def hr_dashboard(request):
         'total_applications': total_applications,
         'open_jobs': open_jobs,
         'shortlisted': shortlisted,
+        'upcoming_interviews': InterviewSlot.objects.filter(
+            application__job__posted_by=request.user,
+            status=InterviewSlot.STATUS_BOOKED,
+            start_time__gte=timezone.now()
+        ).select_related('application', 'application__candidate', 'application__job')[:10],
+        'notifications': Notification.objects.filter(user=request.user, unread=True)[:5],
     }
     return render(request, 'recruitment/hr_dashboard.html', context)
 
@@ -299,6 +308,22 @@ def application_update_status(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"Status updated to '{application.get_status_display()}'.")
+            try:
+                Notification.objects.create(
+                    user=application.candidate,
+                    title="Application Status Updated",
+                    body=f"Your application for {application.job.title} is now '{application.get_status_display()}'.",
+                    link="/candidate/applications/"
+                )
+                send_mail(
+                    subject="Application Status Updated",
+                    message=f"Your application for {application.job.title} is now '{application.get_status_display()}'.",
+                    from_email=None,
+                    recipient_list=[application.candidate.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
             return redirect('applicant_list', pk=application.job.pk)
     else:
         form = ApplicationStatusForm(instance=application)
@@ -443,6 +468,28 @@ def job_apply(request, pk):
                 pass  # Best-effort; never block an application
 
             messages.success(request, f"Applied to '{job.title}' successfully! Good luck!")
+            try:
+                Notification.objects.create(
+                    user=job.posted_by,
+                    title="New Job Application",
+                    body=f"{request.user.username} applied to {job.title}",
+                    link=f"/hr/jobs/{job.pk}/applicants/"
+                )
+                Notification.objects.create(
+                    user=request.user,
+                    title="Application Submitted",
+                    body=f"Your application to {job.title} was received.",
+                    link="/candidate/applications/"
+                )
+                send_mail(
+                    subject="New Application Received",
+                    message=f"A candidate applied to {job.title}.",
+                    from_email=None,
+                    recipient_list=[job.posted_by.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
             return redirect('my_applications')
     else:
         form = JobApplicationForm()
@@ -474,6 +521,12 @@ def candidate_dashboard(request):
         'profile_complete': profile_complete,
         'open_jobs_count': JobPosting.objects.filter(status=JobPosting.STATUS_OPEN).count(),
         'parse_result': parse_result,
+        'upcoming_interviews': InterviewSlot.objects.filter(
+            application__candidate=request.user,
+            status=InterviewSlot.STATUS_BOOKED,
+            start_time__gte=timezone.now()
+        ).select_related('application', 'application__job')[:10],
+        'notifications': Notification.objects.filter(user=request.user, unread=True)[:5],
     }
     return render(request, 'recruitment/candidate_dashboard.html', context)
 
@@ -605,3 +658,161 @@ def run_bias_check_view(request, pk):
         f"Bias check completed: evaluated {evaluated} applicant(s) against {criteria_count} criterion/criteria."
     )
     return redirect('applicant_list', pk=pk)
+
+
+@hr_required
+def propose_interview(request, pk):
+    application = get_object_or_404(JobApplication, pk=pk, job__posted_by=request.user)
+    if request.method == 'POST':
+        form = InterviewProposeForm(request.POST)
+        if form.is_valid():
+            slots = [
+                (form.cleaned_data.get('slot1_start'), form.cleaned_data.get('slot1_end')),
+                (form.cleaned_data.get('slot2_start'), form.cleaned_data.get('slot2_end')),
+                (form.cleaned_data.get('slot3_start'), form.cleaned_data.get('slot3_end')),
+            ]
+            created = 0
+            for s, e in slots:
+                if s and e:
+                    InterviewSlot.objects.create(
+                        application=application,
+                        start_time=s,
+                        end_time=e,
+                        proposed_by=request.user
+                    )
+                    created += 1
+            if created:
+                try:
+                    Notification.objects.create(
+                        user=application.candidate,
+                        title="Interview Slots Proposed",
+                        body=f"{application.job.title}: New interview slots are available.",
+                        link=f"/candidate/applications/{application.pk}/interview/"
+                    )
+                    send_mail(
+                        subject="Interview Slots Proposed",
+                        message=f"Please choose an interview slot for {application.job.title}.",
+                        from_email=None,
+                        recipient_list=[application.candidate.email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
+                messages.success(request, "Interview slots proposed.")
+                return redirect('applicant_list', pk=application.job.pk)
+    else:
+        form = InterviewProposeForm()
+    return render(request, 'recruitment/interview_propose.html', {'form': form, 'application': application})
+
+
+@candidate_required
+def candidate_interview_select(request, pk):
+    application = get_object_or_404(JobApplication, pk=pk, candidate=request.user)
+    slots = application.interview_slots.filter(status=InterviewSlot.STATUS_PROPOSED, start_time__gte=timezone.now())
+    return render(request, 'recruitment/interview_select.html', {'application': application, 'slots': slots})
+
+
+@candidate_required
+def book_interview_slot(request, slot_id):
+    slot = get_object_or_404(InterviewSlot, pk=slot_id, application__candidate=request.user, status=InterviewSlot.STATUS_PROPOSED)
+    application = slot.application
+    InterviewSlot.objects.filter(application=application, status=InterviewSlot.STATUS_PROPOSED).exclude(pk=slot.pk).update(status=InterviewSlot.STATUS_CANCELLED)
+    slot.status = InterviewSlot.STATUS_BOOKED
+    slot.booked_by = request.user
+    slot.save()
+    try:
+        Notification.objects.create(
+            user=application.job.posted_by,
+            title="Interview Slot Booked",
+            body=f"{request.user.username} booked an interview for {application.job.title}.",
+            link=f"/hr/jobs/{application.job.pk}/applicants/"
+        )
+        send_mail(
+            subject="Interview Slot Booked",
+            message=f"The candidate booked an interview slot for {application.job.title}.",
+            from_email=None,
+            recipient_list=[application.job.posted_by.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+    messages.success(request, "Interview slot booked.")
+    return redirect('candidate_dashboard')
+
+
+@login_required
+def notifications_list(request):
+    items = Notification.objects.filter(user=request.user).order_by('-created_at')[:50]
+    return render(request, 'recruitment/notifications.html', {'items': items})
+
+
+@login_required
+def message_thread(request, pk):
+    application = get_object_or_404(JobApplication, pk=pk)
+    if not (request.user.is_hr and application.job.posted_by_id == request.user.id) and not (request.user.is_candidate and application.candidate_id == request.user.id):
+        messages.error(request, "Access denied.")
+        return redirect('home')
+    msgs = application.messages.select_related('sender').all()
+    if request.method == 'POST':
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            Message.objects.create(application=application, sender=request.user, text=form.cleaned_data['text'])
+            other = application.job.posted_by if request.user != application.job.posted_by else application.candidate
+            try:
+                Notification.objects.create(
+                    user=other,
+                    title="New Message",
+                    body=f"New message on {application.job.title}.",
+                    link=f"/messages/{application.pk}/"
+                )
+            except Exception:
+                pass
+            return redirect('message_thread', pk=pk)
+    else:
+        form = MessageForm()
+    return render(request, 'recruitment/messages.html', {'application': application, 'thread_messages': msgs, 'form': form})
+
+
+# ── Phase 5: Calendar Integration ─────────────────────────────────────────────
+
+@login_required
+def slot_ics(request, slot_id: int):
+    """
+    Generate an .ics calendar file for a booked or proposed interview slot.
+    Access restricted to the candidate on the application or the job's HR.
+    """
+    slot = get_object_or_404(InterviewSlot, pk=slot_id)
+    application = slot.application
+    user = request.user
+    if not ((user.is_candidate and application.candidate_id == user.id) or (user.is_hr and application.job.posted_by_id == user.id)):
+        messages.error(request, "Access denied.")
+        return redirect('home')
+
+    def fmt(dt):
+        dt_utc = timezone.localtime(dt, timezone=timezone.utc)
+        return dt_utc.strftime("%Y%m%dT%H%M%SZ")
+
+    now_utc = timezone.now().astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    summary = f"Interview: {application.job.title}"
+    description = f"Interview for {application.job.title} on FairHire"
+    uid = f"slot-{slot.id}@fairhire.local"
+
+    ics = (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//FairHire//Interview//EN\r\n"
+        "CALSCALE:GREGORIAN\r\n"
+        "METHOD:PUBLISH\r\n"
+        "BEGIN:VEVENT\r\n"
+        f"UID:{uid}\r\n"
+        f"DTSTAMP:{now_utc}\r\n"
+        f"DTSTART:{fmt(slot.start_time)}\r\n"
+        f"DTEND:{fmt(slot.end_time)}\r\n"
+        f"SUMMARY:{summary}\r\n"
+        f"DESCRIPTION:{description}\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
+    resp = HttpResponse(ics, content_type="text/calendar; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="interview_slot_{slot.id}.ics"'
+    return resp

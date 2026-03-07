@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Messages — FairHire{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Messages</h1>
+    <p class="page-subtitle">{{ application.job.title }}</p>
+  </div>
+  <a href="{% url 'home' %}" class="btn btn-secondary">← Home</a>
+</div>
+<div class="card" style="max-width:820px;">
+  <div style="max-height:320px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:0.75rem; margin-bottom:1rem;">
+    {% for m in thread_messages %}
+    <div style="margin-bottom:0.5rem;">
+      <div style="font-size:0.8rem; color:var(--text-muted);">
+        {{ m.sender.username }} · {{ m.created_at|date:"M d, Y H:i" }}
+      </div>
+      <div>{{ m.text|linebreaksbr }}</div>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-secondary);">No messages yet.</p>
+    {% endfor %}
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.text }}
+    <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Send</button>
+  </form>
+</div>
+{% endblock %}

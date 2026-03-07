@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Propose Interview — FairHire{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Propose Interview</h1>
+    <p class="page-subtitle">{{ application.job.title }} — {{ application.candidate.username }}</p>
+  </div>
+  <a href="{% url 'applicant_list' application.job.pk %}" class="btn btn-secondary">← Applicants</a>
+  </div>
+<div class="card" style="max-width:680px;">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-warning">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-row">
+      <div class="form-group"><label>Slot 1 start</label>{{ form.slot1_start }}</div>
+      <div class="form-group"><label>Slot 1 end</label>{{ form.slot1_end }}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Slot 2 start</label>{{ form.slot2_start }}</div>
+      <div class="form-group"><label>Slot 2 end</label>{{ form.slot2_end }}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Slot 3 start</label>{{ form.slot3_start }}</div>
+      <div class="form-group"><label>Slot 3 end</label>{{ form.slot3_end }}</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Send Slots</button>
+  </form>
+</div>
+{% endblock %}

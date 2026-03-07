@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Notifications — FairHire{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Notifications</h1>
+  <a href="{% url 'home' %}" class="btn btn-secondary">← Home</a>
+</div>
+<div class="card">
+  {% if items %}
+  <ul style="list-style:none; margin:0; padding:0;">
+    {% for n in items %}
+    <li style="border-bottom:1px solid var(--border); padding:0.75rem 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:600;">{{ n.title }}</div>
+          <div style="color:var(--text-secondary); font-size:0.9rem;">{{ n.body }}</div>
+        </div>
+        <div style="text-align:right; font-size:0.85rem; color:var(--text-muted);">
+          {{ n.created_at|date:"M d, Y H:i" }}
+          {% if n.link %}<div><a href="{{ n.link }}" class="btn btn-secondary btn-sm">Open</a></div>{% endif %}
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p style="color:var(--text-secondary);">No notifications.</p>
+  {% endif %}
+</div>
+{% endblock %}

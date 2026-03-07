@@ -172,7 +172,10 @@
                 </td>
 
                 <!-- Actions -->
-                <td><a href="{% url 'application_update_status' app.pk %}" class="btn btn-primary btn-sm">Update</a>
+                <td style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    <a href="{% url 'application_update_status' app.pk %}" class="btn btn-primary btn-sm">Update</a>
+                    <a href="{% url 'propose_interview' app.pk %}" class="btn btn-secondary btn-sm">Schedule Interview</a>
+                    <a href="{% url 'message_thread' app.pk %}" class="btn btn-secondary btn-sm">Message</a>
                 </td>
             </tr>
             {% endfor %}

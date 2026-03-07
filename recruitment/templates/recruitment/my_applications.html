@@ -68,7 +68,11 @@
                     {% endif %}
                 </td>
 
-                <td><a href="{% url 'job_detail' app.job.pk %}" class="btn btn-secondary btn-sm">View Job</a></td>
+                <td style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    <a href="{% url 'job_detail' app.job.pk %}" class="btn btn-secondary btn-sm">View Job</a>
+                    <a href="{% url 'candidate_interview_select' app.pk %}" class="btn btn-primary btn-sm">Choose Slot</a>
+                    <a href="{% url 'message_thread' app.pk %}" class="btn btn-secondary btn-sm">Message HR</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
