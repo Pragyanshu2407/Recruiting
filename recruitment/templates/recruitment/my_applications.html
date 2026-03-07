@@ -30,8 +30,7 @@
                     <a href="{% url 'job_detail' app.job.pk %}"
                         style="font-weight:600; color:var(--primary); text-decoration:none;">{{ app.job.title }}</a>
                     <div style="font-size:0.8rem; color:var(--text-muted);">
-                        <span class="badge badge-{{ app.job.location_type }}" style="font-size:0.72rem;">{{
-                            app.job.get_location_type_display }}</span>
+                        <span class="badge badge-{{ app.job.location_type }}" style="font-size:0.72rem;">{{ app.job.get_location_type_display }}</span>
                     </div>
                 </td>
 
@@ -47,8 +46,7 @@
                         skills:</div>
                     <div class="skill-tags">
                         {% for ms in app.missing_skills %}
-                        <span class="skill-tag" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca;">{{
-                            ms }}</span>
+                        <span class="skill-tag" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca;">{{ ms }}</span>
                         {% endfor %}
                     </div>
                     {% else %}
@@ -63,14 +61,15 @@
                 <td>
                     <span class="badge badge-{{ app.status }}">{{ app.get_status_display }}</span>
                     {% if app.updated_at != app.applied_at %}
-                    <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Updated {{
-                        app.updated_at|date:"M d" }}</div>
+                    <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Updated {{ app.updated_at|date:"M d" }}</div>
                     {% endif %}
                 </td>
 
                 <td style="display:flex; gap:0.4rem; flex-wrap:wrap;">
                     <a href="{% url 'job_detail' app.job.pk %}" class="btn btn-secondary btn-sm">View Job</a>
+                    {% if app.status == 'interview' %}
                     <a href="{% url 'candidate_interview_select' app.pk %}" class="btn btn-primary btn-sm">Choose Slot</a>
+                    {% endif %}
                     <a href="{% url 'message_thread' app.pk %}" class="btn btn-secondary btn-sm">Message HR</a>
                 </td>
             </tr>

@@ -103,7 +103,13 @@ class CustomLoginView(LoginView):
 
 def home(request):
     open_jobs_count = JobPosting.objects.filter(status=JobPosting.STATUS_OPEN).count()
-    return render(request, 'recruitment/home.html', {'open_jobs_count': open_jobs_count})
+    total_candidates = CustomUser.objects.filter(is_candidate=True).count()
+    total_applications = JobApplication.objects.count()
+    return render(request, 'recruitment/home.html', {
+        'open_jobs_count': open_jobs_count,
+        'total_candidates': total_candidates,
+        'total_applications': total_applications,
+    })
 
 
 # ── HR Dashboard & Profile ───────────────────────────────────────────────────
@@ -347,11 +353,12 @@ def applicant_list(request, pk):
         app.display_skills_top3 = ordered[:3]
         app.display_skills_extra_count = max(0, len(ordered) - 3)
 
-    # Build a nested lookup: {app.pk: {criterion.pk: result}} for template use
+    # Build a nested lookup: {app.pk: {criterion.pk: result_or_None}} for template use
     bias_criteria = list(job.bias_criteria.all())
     bias_results_map = {}
     for app in applications:
-        results_by_criterion = {r.criterion_id: r for r in app.bias_results.all()}
+        existing = {r.criterion_id: r for r in app.bias_results.all()}
+        results_by_criterion = {c.pk: existing.get(c.pk) for c in bias_criteria}
         bias_results_map[app.pk] = results_by_criterion
 
     # Phase 3: Blind Review Mode
@@ -867,6 +874,7 @@ def book_interview_slot(request, slot_id):
 @login_required
 def notifications_list(request):
     items = Notification.objects.filter(user=request.user).order_by('-created_at')[:50]
+    Notification.objects.filter(user=request.user, unread=True).update(unread=False)
     return render(request, 'recruitment/notifications.html', {'items': items})
 
 

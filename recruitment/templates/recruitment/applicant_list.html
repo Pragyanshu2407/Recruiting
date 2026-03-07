@@ -96,9 +96,9 @@
                 <td>
                     {% if app.match_score %}{% with s=app.match_score %}
                     <div style="display:inline-flex; flex-direction:column; align-items:center; gap:0.15rem;">
-                        <span
-                            style="display:inline-block;background:{% if s.score >= 70 %}#10b981{% elif s.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};color:#fff;font-weight:700;font-size:0.85rem;border-radius:9999px;padding:0.1rem 0.6rem;min-width:42px;text-align:center;">{{
-                            s.score }}%</span>
+                        {% with bg=s.score_color %}
+                        <span style="display:inline-block;background:{{ bg }};color:#fff;font-weight:700;font-size:0.85rem;border-radius:9999px;padding:0.1rem 0.6rem;min-width:42px;text-align:center;">{{ s.score }}%</span>
+                        {% endwith %}
                         <span style="font-size:0.7rem; color:var(--text-muted);">{{ s.score_label }}</span>
                     </div>
                     {% endwith %}{% else %}—{% endif %}
@@ -108,24 +108,21 @@
                 {% for c in bias_criteria %}
                 {% with cid=c.pk %}
                 <td>
-                    {% if bias_results_map %}
-                    {% with app_results=bias_results_map|dictsort:"0" %}
-                    {# Template-level lookup: iterate to find matching app.pk #}
                     {% for apk, results in bias_results_map.items %}
                     {% if apk == app.pk %}
                     {% for rid, result in results.items %}
                     {% if rid == cid %}
+                    {% if result %}
                     <span title="{{ result.detail }}" style="cursor:help;">
                         {% if result.passed %}✅{% else %}❌{% endif %}
                     </span>
                     <div style="font-size:0.7rem; color:var(--text-muted); max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
                         title="{{ result.detail }}">{{ result.detail }}</div>
-                    {% endif %}
-                    {% endfor %}
-                    {% endif %}
-                    {% endfor %}
-                    {% endwith %}
                     {% else %}—{% endif %}
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    {% endfor %}
                 </td>
                 {% endwith %}
                 {% endfor %}
@@ -146,8 +143,7 @@
                 <!-- Experience -->
                 <td style="color:var(--text-secondary);">
                     {% if app.candidate.candidate_profile.experience_years %}
-                    {{ app.candidate.candidate_profile.experience_years }} yr{{
-                    app.candidate.candidate_profile.experience_years|pluralize }}
+                    {{ app.candidate.candidate_profile.experience_years }} yr{{ app.candidate.candidate_profile.experience_years|pluralize }}
                     {% else %}—{% endif %}
                 </td>
 

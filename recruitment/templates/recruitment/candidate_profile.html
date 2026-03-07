@@ -64,6 +64,12 @@
             </div>
 
             <div class="form-group">
+                <label for="{{ form.gender.id_for_label }}">{{ form.gender.label }}</label>
+                {{ form.gender }}
+                <p class="helptext">{{ form.gender.help_text }}</p>
+            </div>
+
+            <div class="form-group">
                 <label for="{{ form.resume.id_for_label }}">Resume (PDF/DOCX)</label>
                 {{ form.resume }}
             </div>

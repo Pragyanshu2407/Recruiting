@@ -70,6 +70,7 @@
         {% endfor %}
         </tbody>
     </table>
+</div>
 {% endif %}
 
 <!-- Job Listings Table -->
@@ -94,8 +95,7 @@
                 <td>
                     <a href="{% url 'job_detail' job.pk %}"
                         style="font-weight:600; color:var(--primary); text-decoration:none;">{{ job.title }}</a>
-                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">{{ job.location|default:"No
-                        location set" }}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">{{ job.location|default:"No location set" }}</div>
                 </td>
                 <td><span class="badge badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
                 <td><span class="badge badge-{{ job.location_type }}">{{ job.get_location_type_display }}</span></td>

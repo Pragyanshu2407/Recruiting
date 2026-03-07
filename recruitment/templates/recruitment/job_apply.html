@@ -10,8 +10,7 @@
     <div class="page-header" style="margin-bottom:1rem;">
         <div>
             <h1 class="page-title">Apply: {{ job.title }}</h1>
-            <p class="page-subtitle">🏢 {% if job.posted_by.hr_profile.company_name %}{{
-                job.posted_by.hr_profile.company_name }}{% else %}{{ job.posted_by.username }}{% endif %}</p>
+            <p class="page-subtitle">🏢 {% if job.posted_by.hr_profile.company_name %}{{ job.posted_by.hr_profile.company_name }}{% else %}{{ job.posted_by.username }}{% endif %}</p>
         </div>
     </div>
 
