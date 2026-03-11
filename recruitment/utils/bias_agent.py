@@ -24,7 +24,7 @@ _TIER1_KEYWORDS = [
 ]
 _TIER2_KEYWORDS = [
     "nit", "iiit", "bits", "thapar", "pec", "coep", "sjce", "mnnit",
-    "mnit", "nitrr", "nitk", "nitw", "nitc", "nita",
+    "mnit", "nitrr", "nitk", "nitw", "nitc", "nita","nie"
 ]
 
 
