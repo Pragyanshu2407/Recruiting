@@ -1,0 +1,14 @@
+# FairHire FastAPI microservice — additional dependencies
+# --------------------------------------------------------
+# Install BOTH this file and requirements.txt to get everything the
+# utility modules need (PyMuPDF, python-docx, scikit-learn, etc.):
+#
+#   pip install -r requirements.txt -r requirements_api.txt
+#
+# Or for a standalone microservice deployment that only runs api.py:
+#
+#   pip install -r requirements_api.txt \
+#               PyMuPDF python-docx scikit-learn numpy scipy pillow
+
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
